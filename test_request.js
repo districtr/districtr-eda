@@ -394,11 +394,14 @@ function test_request() {
 
   const test = JSON.stringify(test_json);
   console.log(test);
-  fetch("http://127.0.0.1:5000/", {
+  //fetch("http://127.0.0.1:5000", {
+  fetch("http://lieu.pythonanywhere.com", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      //"Content-Type": "text/plain",
     },
+    mode: "cors",
     body: JSON.stringify(test_json),
   })
     .then((res) => res.json())
