@@ -1,10 +1,14 @@
+import os.path
+import flask
 from flask import Flask
 from flask import request
+from flask_cors import CORS
 import json
 import geopandas as gpd
 import gerrychain
 
 app = Flask(__name__)
+CORS(app)
 
 import os.path
 
@@ -16,15 +20,19 @@ state_shapefile_paths = {
 @app.route('/', methods=['POST'])
 # Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
 def plan_metrics():
-    #JSON_PATH = './incomplete-islands.json'
-    # Consider now that we've received a request
-    plan = request.json
+    #print("Request received")
+    #print(request)
+    plan = request.get_json()
+    #print(plan)
+    
     state = plan['placeId'] # get the state of the Districtr plan
     # Check if we already have a dual graph of the state
-    try:
-        with open(f"./dual_graphs/{state}_dual.json", 'r') as f:
-            state_graph = gerrychain.Graph.from_json(f)
-    except FileNotFoundError: # otherwise, generate it
+    dual_graph_path = f"./dual_graphs/{state}_dual.json"
+
+    if os.path.isfile(dual_graph_path):
+        state_graph = gerrychain.Graph.from_json(dual_graph_path)
+    else:
+        print("No dual graph found, generating our own.")
         try:
             state_shapefile_path = state_shapefile_paths[state]
             state_graph = gerrychain.Graph.from_file(state_shapefile_path)
@@ -48,9 +56,20 @@ def plan_metrics():
             "needed to match the Districtr assignment to the nodes of the graph."
         )
     assignment = {node: districtr_assignment[node_to_id[node]] for node in state_graph}
-    partition = (state_graph, assignment, None)
+    partition = gerrychain.Partition(state_graph, assignment, None)
 
     # Now that we have the partition, calculate all the different metrics
     cut_edges = (partition['cut_edges'])
     contiguity = (gerrychain.constraints.contiguity.contiguous(partition))
-    return ({'cut_edges': cut_edges, 'contiguity': contiguity})
+
+
+    response = flask.jsonify({'cut_edges': str(cut_edges), 'contiguity': contiguity})
+    #response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+    '''
+
+    response = flask.jsonify({'message': 'hello'})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+    '''
+
