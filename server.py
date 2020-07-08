@@ -61,6 +61,7 @@ def plan_metrics():
         return response
 
     # If everything checks out, form a Partition
+    assignment = {}
     for node in state_graph:
         if node_to_id[node] in districtr_assignment:
             assignment[node] = districtr_assignment[node_to_id[node]]
