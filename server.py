@@ -65,8 +65,8 @@ def plan_metrics():
     assignment = {}
     for node in state_graph:
         if node_to_id[node] in districtr_assignment:
-            if isinstance(node_to_id[node] == list):
-                assert(len(node_to_id[node]) == 1)
+            if isinstance(districtr_assignment[node_to_id[node]] == list):
+                assert(len(districtr_assignment[node_to_id[node]]) == 1)
                 assignment[node] = districtr_assignment[node_to_id[node][0]]
             else:
                 assignment[node] = districtr_assignment[node_to_id[node]]
