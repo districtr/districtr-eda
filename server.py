@@ -50,6 +50,7 @@ def plan_metrics():
     # https://gerrychain.readthedocs.io/en/latest/_modules/gerrychain/partition/partition.html
     id_column_key = plan["idColumn"]["key"]
     districtr_assignment = plan["assignment"]
+    print(districtr_assignment)
 
     try:
         node_to_id = {node: str(state_graph.nodes[node][id_column_key]) for node in state_graph}
@@ -67,6 +68,8 @@ def plan_metrics():
             assignment[node] = districtr_assignment[node_to_id[node]]
         else:
             assignment[node] = -1
+
+    print(assignment)
 
     # assignment = {node: districtr_assignment[node_to_id[node]] for node in state_graph}
     partition = gerrychain.Partition(state_graph, assignment, None)
