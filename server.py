@@ -62,7 +62,7 @@ def plan_metrics():
         return response
 
     # If everything checks out, form a Partition
-    print(districtr_assignment)
+    # print(districtr_assignment)
 
     assignment = {}
     for node in state_graph:
@@ -70,7 +70,7 @@ def plan_metrics():
         if node_id in districtr_assignment:
             if isinstance(districtr_assignment[node_id], list):
                 assert(len(districtr_assignment[node_id]) == 1)
-                print(districtr_assignment[node_id][0])
+                # print(districtr_assignment[node_id][0])
                 assignment[node] = districtr_assignment[node_id][0]
             else:
                 assignment[node] = districtr_assignment[node_id]
@@ -78,7 +78,7 @@ def plan_metrics():
             # We assign to -1
             assignment[node] = -1
 
-    print(assignment)
+    # print(assignment)
 
     # assignment = {node: districtr_assignment[node_to_id[node]] for node in state_graph}
     partition = gerrychain.Partition(state_graph, assignment, None)
