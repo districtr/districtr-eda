@@ -66,7 +66,7 @@ def plan_metrics():
 
     assignment = {}
     for node in state_graph:
-        node_id = note_to_id[node]
+        node_id = node_to_id[node]
         if node_id in districtr_assignment:
             if isinstance(districtr_assignment[node_id], list):
                 assert(len(districtr_assignment[node_id]) == 1)
