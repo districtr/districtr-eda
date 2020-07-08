@@ -69,6 +69,7 @@ def plan_metrics():
         if node_to_id[node] in districtr_assignment:
             if isinstance(districtr_assignment[node_to_id[node]], list):
                 assert(len(districtr_assignment[node_to_id[node]]) == 1)
+                print(districtr_assignment[node_to_id[node][0]])
                 assignment[node] = districtr_assignment[node_to_id[node][0]]
             else:
                 assignment[node] = districtr_assignment[node_to_id[node]]
