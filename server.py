@@ -61,7 +61,13 @@ def plan_metrics():
         return response
 
     # If everything checks out, form a Partition
-    assignment = {node: districtr_assignment[node_to_id[node]] for node in state_graph}
+    for node in state_graph:
+        if node_to_id[node] in districtr_assignment:
+            assignment[node] = districtr_assignment[node_to_id[node]]
+        else:
+            assignment[node] = -1
+
+    # assignment = {node: districtr_assignment[node_to_id[node]] for node in state_graph}
     partition = gerrychain.Partition(state_graph, assignment, None)
 
     # Now that we have the partition, calculate all the different metrics
