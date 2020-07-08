@@ -65,8 +65,13 @@ def plan_metrics():
     assignment = {}
     for node in state_graph:
         if node_to_id[node] in districtr_assignment:
-            assignment[node] = districtr_assignment[node_to_id[node]]
+            if isinstance(node_to_id[node] == list):
+                assert(len(node_to_id[node]) == 1)
+                assignment[node] = districtr_assignment[node_to_id[node][0]]
+            else:
+                assignment[node] = districtr_assignment[node_to_id[node]]
         else:
+            # We assign to -1
             assignment[node] = -1
 
     print(assignment)
