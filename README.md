@@ -40,9 +40,14 @@ Then, go to the PythonAnywhere dashboard. In the "Web" tab, do the following:
 
 1. Under the "Code" heading, point "Source code:" to `/home/mggg/districtr-eda`.
 
-2. On the WSGI configuration file `mggg_pythonanywhere_com_wsgi.py`, set the following:
+2. On the WSGI configuration file `mggg_pythonanywhere_com_wsgi.py`, set the following under the Flask section:
 
 ```python
+# +++++++++++ FLASK +++++++++++
+# Flask works like any other WSGI-compatible framework, we just need
+# to import the application.  Often Flask apps are called "app" so we
+# may need to rename it during the import:
+#
 import sys
 #
 ## The "/home/lieu" below specifies your home
