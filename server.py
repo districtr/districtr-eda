@@ -15,7 +15,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 state_shapefile_paths = {
     "iowa": f'{dir_path}/shapefiles/IA_counties/IA_counties.shp',
-    "texas": f'{dir_path}/shapefiles/TN_vtds/TN_vtds.shp',
+    "texas": f'{dir_path}/shapefiles/TX_vtds/TX_vtds.shp',
 }
 
 @app.route('/', methods=['POST'])
