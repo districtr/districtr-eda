@@ -39,6 +39,9 @@ def plan_metrics():
             state_shapefile_path = state_shapefile_paths[state]
             state_graph = gerrychain.Graph.from_file(state_shapefile_path)
             state_graph.to_json(f'{dir_path}/dual_graphs/{state}_dual.json')
+            print("Dual graph generated!")
+        except GeometryError as e:
+            print(e)
         except ValueError:
             response = flask.jsonify({'error': "Don't have either dual graph or shapefile for this state"})
             #response.headers.add('Access-Control-Allow-Origin', '*')
