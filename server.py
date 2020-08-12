@@ -28,7 +28,8 @@ def plan_metrics():
     
     state = plan['placeId'] # get the state of the Districtr plan
     # Check if we already have a dual graph of the state
-    dual_graph_path = f"{dir_path}/dual_graphs/{state}_dual.json"
+    #dual_graph_path = f"{dir_path}/dual_graphs/{state}_dual.json"
+    dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
     print(dual_graph_path)
 
     if os.path.isfile(dual_graph_path):
