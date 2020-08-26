@@ -6,6 +6,7 @@ from flask_cors import CORS
 import json
 import geopandas as gpd
 import gerrychain
+import networkx as nx
 
 app = Flask(__name__)
 CORS(app)
@@ -89,9 +90,15 @@ def plan_metrics():
 
     # Now that we have the partition, calculate all the different metrics
     cut_edges = (partition['cut_edges'])
-    contiguity = (gerrychain.constraints.contiguity.contiguous(partition))
 
+    split_districts = []
+    for part in gerrychain.constraints.contiguity.affected_parts(partition):
+        if part != -1:
+            part_contiguous = nx.is_connected(partition.subgraphs[part])
+            if not part_contiguous:
+                split_districts.append(part)
+    contiguity = (len(split_districts) == 0)
 
-    response = flask.jsonify({'cut_edges': str(cut_edges), 'contiguity': contiguity})
+    response = flask.jsonify({'cut_edges': str(cut_edges), 'contiguity': contiguity, 'split': split_districts})
     #response.headers.add('Access-Control-Allow-Origin', '*')
     return response
