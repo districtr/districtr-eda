@@ -111,5 +111,5 @@ def plan_metrics():
     # Contiguity
     contiguity = (len(split_districts) == 0)
 
-    response = flask.jsonify({'cut_edges': str(cut_edges), 'contiguity': contiguity, 'split': split_districts})
+    response = flask.jsonify({'cut_edges': len(cut_edges), 'contiguity': contiguity, 'split': split_districts})
     return response
