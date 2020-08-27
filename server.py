@@ -59,6 +59,7 @@ def plan_metrics():
     else:
         print("No dual graph found, generating our own.")
         try:
+            # TODO timeit this --- how long does it take to load into memory?
             state_shapefile_path = state_shapefile_paths[state]
             state_graph = gerrychain.Graph.from_file(state_shapefile_path)
             state_graph.to_json(f'{dir_path}/dual_graphs/{state}_dual.json')
@@ -87,8 +88,10 @@ def plan_metrics():
         return response
 
     # If everything checks out, form a Partition
+    # TODO timeit this --- how long does it take?
     assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
 
+    # TODO timeit this --- how long does it take?
     partition = gerrychain.Partition(state_graph, assignment, None)
 
     # Now that we have the partition, calculate all the different metrics
@@ -97,6 +100,7 @@ def plan_metrics():
     cut_edges = (partition['cut_edges'])
 
     # Split districts
+    # TODO timeit this --- how long does it take?
     split_districts = []
     for part in gerrychain.constraints.contiguity.affected_parts(partition):
         if part != -1:
