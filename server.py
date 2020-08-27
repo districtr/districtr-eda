@@ -19,17 +19,38 @@ state_shapefile_paths = {
     "texas": f'{dir_path}/shapefiles/TX_vtds/TX_vtds.shp',
 }
 
+def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph):
+    '''
+    Converts a Districtr graph assignment (which node belongs to which district)
+    into an assignment that works with Gerrychain
+    Requires a Districtr graph assignment, 
+    a mapping of Districtr nodes to Gerrychain nodes,
+    and the appropriate state dual graph.
+    Assigns all unassigned nodes to a district -1.
+    Returns an assignment of each node in the state graph to to a district.
+    '''
+    assignment = {}
+    for node in state_graph:
+        node_id = node_to_id[node]
+        if node_id in districtr_assignment:
+            if isinstance(districtr_assignment[node_id], list):
+                assert(len(districtr_assignment[node_id]) == 1)
+                # print(districtr_assignment[node_id][0])
+                assignment[node] = districtr_assignment[node_id][0]
+            else:
+                assignment[node] = districtr_assignment[node_id]
+        else:
+            # We assign to -1
+            assignment[node] = -1
+    return assignment
+
 @app.route('/', methods=['POST'])
 # Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
 def plan_metrics():
-    #print("Request received")
-    #print(request)
     plan = request.get_json()
-    #print(plan)
     
     state = plan['placeId'] # get the state of the Districtr plan
     # Check if we already have a dual graph of the state
-    #dual_graph_path = f"{dir_path}/dual_graphs/{state}_dual.json"
     dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
     print(dual_graph_path)
 
@@ -46,7 +67,6 @@ def plan_metrics():
             print(e)
         except ValueError:
             response = flask.jsonify({'error': "Don't have either dual graph or shapefile for this state"})
-            #response.headers.add('Access-Control-Allow-Origin', '*')
             return response
 
     # OK, so now we are guaranteed to have the state graph.
@@ -67,38 +87,25 @@ def plan_metrics():
         return response
 
     # If everything checks out, form a Partition
-    # print(districtr_assignment)
+    assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
 
-    assignment = {}
-    for node in state_graph:
-        node_id = node_to_id[node]
-        if node_id in districtr_assignment:
-            if isinstance(districtr_assignment[node_id], list):
-                assert(len(districtr_assignment[node_id]) == 1)
-                # print(districtr_assignment[node_id][0])
-                assignment[node] = districtr_assignment[node_id][0]
-            else:
-                assignment[node] = districtr_assignment[node_id]
-        else:
-            # We assign to -1
-            assignment[node] = -1
-
-    # print(assignment)
-
-    # assignment = {node: districtr_assignment[node_to_id[node]] for node in state_graph}
     partition = gerrychain.Partition(state_graph, assignment, None)
 
     # Now that we have the partition, calculate all the different metrics
+
+    # Calculate cut edges
     cut_edges = (partition['cut_edges'])
 
+    # Split districts
     split_districts = []
     for part in gerrychain.constraints.contiguity.affected_parts(partition):
         if part != -1:
             part_contiguous = nx.is_connected(partition.subgraphs[part])
             if not part_contiguous:
                 split_districts.append(part)
+
+    # Contiguity
     contiguity = (len(split_districts) == 0)
 
     response = flask.jsonify({'cut_edges': str(cut_edges), 'contiguity': contiguity, 'split': split_districts})
-    #response.headers.add('Access-Control-Allow-Origin', '*')
     return response
