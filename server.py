@@ -61,6 +61,9 @@ def plan_metrics():
         end = time.time()
         print(f"Time taken to load into gerrychain Graph from json: {end-start}")
     else:
+        response = flask.jsonify({'error': "Don't have dual graph for this state"})
+        return response
+        '''
         print("No dual graph found, generating our own.")
         try:
             state_shapefile_path = state_shapefile_paths[state]
@@ -72,6 +75,7 @@ def plan_metrics():
         except ValueError:
             response = flask.jsonify({'error': "Don't have either dual graph or shapefile for this state"})
             return response
+        '''
 
     # OK, so now we are guaranteed to have the state graph.
     # Form the partition with the JSON path (requires state graph)
