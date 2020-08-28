@@ -44,6 +44,8 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
             assignment[node] = -1
     return assignment
 
+cached_gerrychain_graphs = {}
+
 @app.route('/', methods=['POST'])
 # Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
 def plan_metrics():
@@ -54,10 +56,19 @@ def plan_metrics():
     dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
     print(dual_graph_path)
 
-    if os.path.isfile(dual_graph_path):
+    if state in cached_gerrychain_graphs:
+        start = time.time()
+        print("Retrieving the state graph from memory..")
+        state_graph = cached_gerrychain_graphs[state]
+        end = time.time()
+        print(f"Time taken to retrieve the state graph from memory: {end-start}")
+    elif os.path.isfile(dual_graph_path):
         # TODO timeit this --- how long does it take to load into memory?
+        # this takes the vast majority of the time
         start = time.time()
         state_graph = gerrychain.Graph.from_json(dual_graph_path)
+        print("Caching the state graph...")
+        cached_gerrychain_graphs[state] = state_graph
         end = time.time()
         print(f"Time taken to load into gerrychain Graph from json: {end-start}")
     else:
@@ -95,16 +106,16 @@ def plan_metrics():
 
     # If everything checks out, form a Partition
     # TODO timeit this --- how long does it take?
-    start = time.time()
+    start_1 = time.time()
     assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
-    end = time.time()
-    print(f"Time taken to form assignment from dual graph: {end-start}")
+    end_1 = time.time()
+    print(f"Time taken to form assignment from dual graph: {end_1-start_1}")
 
     # TODO timeit this --- how long does it take?
-    start = time.time()
+    start_2 = time.time()
     partition = gerrychain.Partition(state_graph, assignment, None)
-    end = time.time()
-    print(f"Time taken to form partition from assignment: {end-start}")
+    end_2 = time.time()
+    print(f"Time taken to form partition from assignment: {end_2 - start_2}")
 
     # Now that we have the partition, calculate all the different metrics
 
@@ -113,15 +124,15 @@ def plan_metrics():
 
     # Split districts
     # TODO timeit this --- how long does it take?
-    start = time.time()
+    start_3 = time.time()
     split_districts = []
     for part in gerrychain.constraints.contiguity.affected_parts(partition):
         if part != -1:
             part_contiguous = nx.is_connected(partition.subgraphs[part])
             if not part_contiguous:
                 split_districts.append(part)
-    end = time.time()
-    print(f"Time taken to get split districts: {end-start}")
+    end_3 = time.time()
+    print(f"Time taken to get split districts: {end_3 - start_3}")
 
     # Contiguity
     contiguity = (len(split_districts) == 0)
