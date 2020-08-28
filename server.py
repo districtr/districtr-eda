@@ -59,7 +59,7 @@ def plan_metrics():
         start = time.time()
         state_graph = gerrychain.Graph.from_json(dual_graph_path)
         end = time.time()
-        print(f"Time taken to load into gerrychain Graph from json: {dual_graph_path}")
+        print(f"Time taken to load into gerrychain Graph from json: {end-start}")
     else:
         print("No dual graph found, generating our own.")
         try:
