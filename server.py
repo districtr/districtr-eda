@@ -35,7 +35,6 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
         if node_id in districtr_assignment:
             if isinstance(districtr_assignment[node_id], list):
                 assert(len(districtr_assignment[node_id]) == 1)
-                # print(districtr_assignment[node_id][0])
                 assignment[node] = districtr_assignment[node_id][0]
             else:
                 assignment[node] = districtr_assignment[node_id]
@@ -77,7 +76,6 @@ def plan_metrics():
     # https://gerrychain.readthedocs.io/en/latest/_modules/gerrychain/partition/partition.html
     id_column_key = plan["idColumn"]["key"]
     districtr_assignment = plan["assignment"]
-    print(districtr_assignment)
 
     try:
         node_to_id = {node: str(state_graph.nodes[node][id_column_key]) for node in state_graph}
