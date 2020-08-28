@@ -7,6 +7,7 @@ import json
 import geopandas as gpd
 import gerrychain
 import networkx as nx
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -55,11 +56,13 @@ def plan_metrics():
 
     if os.path.isfile(dual_graph_path):
         # TODO timeit this --- how long does it take to load into memory?
+        start = time.time()
         state_graph = gerrychain.Graph.from_json(dual_graph_path)
+        end = time.time()
+        print(f"Time taken to load into gerrychain Graph from json: {dual_graph_path}")
     else:
         print("No dual graph found, generating our own.")
         try:
-            # TODO timeit this --- how long does it take to load into memory?
             state_shapefile_path = state_shapefile_paths[state]
             state_graph = gerrychain.Graph.from_file(state_shapefile_path)
             state_graph.to_json(f'{dir_path}/dual_graphs/{state}_dual.json')
@@ -88,10 +91,16 @@ def plan_metrics():
 
     # If everything checks out, form a Partition
     # TODO timeit this --- how long does it take?
+    start = time.time()
     assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
+    end = time.time()
+    print(f"Time taken to form assignment from dual graph: {end-start}")
 
     # TODO timeit this --- how long does it take?
+    start = time.time()
     partition = gerrychain.Partition(state_graph, assignment, None)
+    end = time.time()
+    print(f"Time taken to form partition from assignment: {end-start}")
 
     # Now that we have the partition, calculate all the different metrics
 
@@ -100,12 +109,15 @@ def plan_metrics():
 
     # Split districts
     # TODO timeit this --- how long does it take?
+    start = time.time()
     split_districts = []
     for part in gerrychain.constraints.contiguity.affected_parts(partition):
         if part != -1:
             part_contiguous = nx.is_connected(partition.subgraphs[part])
             if not part_contiguous:
                 split_districts.append(part)
+    end = time.time()
+    print(f"Time taken to get split districts: {end-start}")
 
     # Contiguity
     contiguity = (len(split_districts) == 0)
