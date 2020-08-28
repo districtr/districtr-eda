@@ -55,6 +55,7 @@ def plan_metrics():
     print(dual_graph_path)
 
     if os.path.isfile(dual_graph_path):
+        # TODO timeit this --- how long does it take to load into memory?
         state_graph = gerrychain.Graph.from_json(dual_graph_path)
     else:
         print("No dual graph found, generating our own.")
