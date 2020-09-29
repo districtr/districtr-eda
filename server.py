@@ -1,28 +1,34 @@
 import os.path
+from os import system
 import base64
 import io
 import time
+from random import randint
 
 import flask
 from flask import Flask
 from flask import request
+from flask import send_file
 from flask_cors import CORS
 import json
 import geopandas as gpd
 import gerrychain
 import networkx as nx
 import matplotlib.pyplot as plt
+import fiona
 
 app = Flask(__name__)
 CORS(app)
 
-import os.path
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 state_shapefile_paths = {
     "iowa": f'{dir_path}/shapefiles/IA_counties/IA_counties.shp',
     "texas": f'{dir_path}/shapefiles/TX_vtds/TX_vtds.shp',
     "forsyth_nc": f'{dir_path}/shapefiles/forsyth_nc/forsyth-nc.shp',
+    'maryland': f'{dir_path}/shapefiles/maryland/MD_precincts.shp',
+    'lax': f'{dir_path}/shapefiles/lax/tl_2010_06037_bg10.shp',
+    'ccsanitation': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
 }
 
 def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph):
@@ -50,6 +56,59 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
     return assignment
 
 cached_gerrychain_graphs = {}
+
+@app.route('/shp', methods=['POST'])
+def shp_export():
+    plan = request.get_json()
+
+    state = plan['placeId'] # get the plan id of the Districtr plan
+
+    if state not in state_shapefile_paths:
+        return 'no shapefile available'
+
+    with fiona.open(state_shapefile_paths[state], "r") as source:
+
+        # Copy the source schema and add two new properties.
+        sink_schema = source.schema
+        sink_schema["properties"]["districtr"] = "int"
+
+        # Create a sink for processed features with the same format and
+        # coordinate reference system as the source.
+        fname = "/tmp/export-" + str(randint(1000,9999))
+        with fiona.open(
+            fname + '.shp',
+            "w",
+            crs=source.crs,
+            driver=source.driver,
+            schema=sink_schema,
+        ) as sink:
+            idkey = plan["idColumn"]["key"]
+
+            for f in source:
+                ukey = f["properties"][idkey]
+                try:
+                    if str(ukey) in plan["assignment"]:
+                        f["properties"].update(
+                            districtr=plan["assignment"][str(ukey)][0] + 1
+                        )
+                    else:
+                        f["properties"].update(
+                            districtr=-1
+                        )
+                        if int(ukey) in plan["assignment"]:
+                            f["properties"].update(
+                                districtr=plan["assignment"][int(ukey)][0] + 1
+                            )
+                except:
+                    blank = 1
+                sink.write(f)
+
+        system('zip ' + fname + '.zip ' + fname + '.*')
+        return send_file(
+            open(fname + '.zip', 'rb'),
+            mimetype='application/zip',
+            as_attachment=True,
+            attachment_filename='export.zip')
 
 @app.route('/picture', methods=['POST'])
 def plan_pic():
