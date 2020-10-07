@@ -29,6 +29,8 @@ state_shapefile_paths = {
     'maryland': f'{dir_path}/shapefiles/maryland/MD_precincts.shp',
     'lax': f'{dir_path}/shapefiles/lax/tl_2010_06037_bg10.shp',
     'ccsanitation': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
+    'new_mexico_bg': f'{dir_path}/shapefiles/new_mexico/tl_2010_35_bg10.shp',
+    'louisiana': f'{dir_path}/shapefiles/louisiana/LA_1519.shp',
 }
 
 def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph):
@@ -46,7 +48,7 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
         node_id = node_to_id[node]
         if node_id in districtr_assignment:
             if isinstance(districtr_assignment[node_id], list):
-                assert(len(districtr_assignment[node_id]) == 1)
+                #assert(len(districtr_assignment[node_id]) == 1)
                 assignment[node] = districtr_assignment[node_id][0]
             else:
                 assignment[node] = districtr_assignment[node_id]
@@ -72,6 +74,10 @@ def shp_export():
         sink_schema = source.schema
         sink_schema["properties"]["districtr"] = "int"
 
+        coi_mode = ("type" in plan["problem"]) and (plan["problem"]["type"] == "community")
+        if coi_mode:
+            sink_schema["properties"]["communityname"] = "str"
+
         # Create a sink for processed features with the same format and
         # coordinate reference system as the source.
         fname = "/tmp/export-" + str(randint(1000,9999))
@@ -91,6 +97,13 @@ def shp_export():
                         f["properties"].update(
                             districtr=plan["assignment"][str(ukey)][0] + 1
                         )
+                        if coi_mode:
+                            f["properties"].update(
+                                communityname=plan["parts"][plan["assignment"][str(ukey)][0]]["name"]
+                            )
+                    elif coi_mode:
+                        # don't include unmapped parts of state/city in COI export
+                        continue
                     else:
                         f["properties"].update(
                             districtr=-1
@@ -121,7 +134,6 @@ def plan_pic():
 
     # Check if we already have a dual graph of the state
     dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
-    print(dual_graph_path)
 
     if state in cached_gerrychain_graphs:
         start = time.time()
@@ -213,7 +225,7 @@ def plan_pic():
     "#FFEA00",
     "#6200EA"][cutoff_blank:len(parts_in_partition) + cutoff_blank]
 
-    axesplot = partition.plot(geometries, cmap=plt.cm.colors.ListedColormap(cs_bright))
+    axesplot = partition.plot(geometries, cmap=plt.cm.colors.ListedColormap(cs_bright), figsize=(1.8,1.8))
     axesplot.axis("off")
 
     pic_IObytes = io.BytesIO()
