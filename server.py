@@ -29,6 +29,7 @@ state_shapefile_paths = {
     'maryland': f'{dir_path}/shapefiles/maryland/MD_precincts.shp',
     'lax': f'{dir_path}/shapefiles/lax/tl_2010_06037_bg10.shp',
     'ccsanitation': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
+    'ccsanitation2': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
     'new_mexico_bg': f'{dir_path}/shapefiles/new_mexico/tl_2010_35_bg10.shp',
     'louisiana': f'{dir_path}/shapefiles/louisiana/LA_1519.shp',
 }
@@ -74,13 +75,18 @@ def shp_export():
         sink_schema = source.schema
         sink_schema["properties"]["districtr"] = "int"
 
+        randcode = str(randint(1000,9999))
+
         coi_mode = ("type" in plan["problem"]) and (plan["problem"]["type"] == "community")
         if coi_mode:
             sink_schema["properties"]["communityname"] = "str"
+            if "place" in plan and "landmarks" in plan["place"] and "data" in plan["place"]["landmarks"]:
+                with open("/tmp/export-" + randcode + ".geojson", "w") as gjo:
+                    gjo.write(json.dumps(plan["place"]["landmarks"]["data"]))
 
         # Create a sink for processed features with the same format and
         # coordinate reference system as the source.
-        fname = "/tmp/export-" + str(randint(1000,9999))
+        fname = "/tmp/export-" + randcode
         with fiona.open(
             fname + '.shp',
             "w",
