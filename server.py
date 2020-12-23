@@ -86,7 +86,10 @@ state_shapefile_paths = {
         "maryland_bg": f'{dir_path}/shapefiles/maryland/tl_2010_24_bg10.shp',
 
     # Massachusetts
-        'massachusetts_bg': f'{dir_path}/shapefiles/massachusetts/tl_2010_25_bg10.shp',
+    'ma': f'{dir_path}/shapefiles/massachusetts/TOWNSSURVEY_POLYM_GENCOAST.shp',
+        'ma_12': f'{dir_path}/shapefiles/massachusetts/MA_precincts12_16.shp',
+        'ma_02': f'{dir_path}/shapefiles/massachusetts/MA_precincts_02_10.shp',
+        'ma_bg': f'{dir_path}/shapefiles/massachusetts/tl_2010_25_bg10.shp',
         'lowell': f'{dir_path}/shapefiles/lowell/lowell-contig.shp',
 
     "michigan": f'{dir_path}/shapefiles/michigan/MI_precincts.shp',
@@ -100,6 +103,9 @@ state_shapefile_paths = {
 
     # Missouri
         "missouri_bg": f'{dir_path}/shapefiles/missouri/tl_2010_29_bg10.shp',
+
+    # Montana
+        "montana_bg": f'{dir_path}/shapefiles/montana/tl_2010_30_bg10.shp',
 
     # Nebraska
         "nebraska_bg": f'{dir_path}/shapefiles/nebraska/tl_2010_31_bg10.shp',
@@ -176,6 +182,9 @@ state_shapefile_paths = {
         "wisconsin2020": f'{dir_path}/shapefiles/wisconsin/WI.shp',
         "wisconsin_bg": f'{dir_path}/shapefiles/wisconsin/tl_2010_55_bg10.shp',
 
+    # wyoming
+        "wyoming_bg": f'{dir_path}/shapefiles/wyoming/tl_2010_56_bg10.shp',
+
 }
 
 def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph):
@@ -212,6 +221,11 @@ def shp_export():
     shapefile_code = state
     if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
         shapefile_code += '_bg'
+
+    if plan['units']['id'] == 'precincts_02_10':
+        shapefile_code += '_02'
+    elif plan['units']['id'] == 'precincts_12_16':
+        shapefile_code += '_12'
 
     if shapefile_code not in state_shapefile_paths:
         return 'no shapefile available'
