@@ -23,15 +23,159 @@ CORS(app)
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 state_shapefile_paths = {
+    # blockgroups and precincts: how do we support both?
+    # place.id=alaska will be split into 'alaska' and 'alaska_bg' (when units.id=="blockgroups") on the server
+    # just direct them to the correct file for that type
+    # if your id already includes _bg it will not double up
+
+    "alabama_bg": f'{dir_path}/shapefiles/alabama/tl_2010_01_bg10.shp',
+
+    "alaska": f'{dir_path}/shapefiles/alaska/alaska_precincts.shp',
+        "alaska_bg": f'{dir_path}/shapefiles/alaska/tl_2010_02_bg10.shp',
+
+    "arizona": f'{dir_path}/shapefiles/arizona/az_precincts.shp',
+        "arizona_bg": f'{dir_path}/shapefiles/arizona/tl_2010_04_bg10.shp',
+
+    "arkansas_bg": f'{dir_path}/shapefiles/arkansas/tl_2010_05_bg10.shp',
+
+    # California
+    "california_bg": f'{dir_path}/shapefiles/california/tl_2010_06_bg10.shp',
+        'lax_bg': f'{dir_path}/shapefiles/lax/tl_2010_06037_bg10.shp',
+        'ccsanitation': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
+        'ccsanitation2': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
+
+    "colorado": f'{dir_path}/shapefiles/colorado/co_precincts.shp',
+        "colorado_bg": f'{dir_path}/shapefiles/colorado/tl_2010_08_bg10.shp',
+
+    "connecticut": f'{dir_path}/shapefiles/connecticut/CT_precincts.shp',
+        "connecticut_bg": f'{dir_path}/shapefiles/connecticut/tl_2010_09_bg10.shp',
+
+    "delaware": f'{dir_path}/shapefiles/delaware/DE_precincts.shp',
+        "delaware_bg": f'{dir_path}/shapefiles/delaware/tl_2010_10_bg10.shp',
+
+    'dc_bg': f'{dir_path}/shapefiles/wadc/tl_2010_11_bg10.shp',
+
+    "florida": f'{dir_path}/shapefiles/florida/tl_2010_12_bg10.shp',
+
+    "georgia": f'{dir_path}/shapefiles/georgia/GA_precincts16.shp',
+        "georgia_bg": f'{dir_path}/shapefiles/georgia/tl_2010_13_bg10.shp',
+
+    "hawaii": f'{dir_path}/shapefiles/hawaii/HI_precincts.shp',
+        "hawaii_bg": f'{dir_path}/shapefiles/hawaii/tl_2010_15_bg10.shp',
+
+    "idaho_bg": f'{dir_path}/shapefiles/idaho/tl_2010_16_bg10.shp',
+
+    "illinois_bg": f'{dir_path}/shapefiles/illinois/tl_2010_17_bg10.shp',
+
+    "indiana_bg": f'{dir_path}/shapefiles/indiana/tl_2010_18_bg10.shp',
+
     "iowa": f'{dir_path}/shapefiles/IA_counties/IA_counties.shp',
-    "texas": f'{dir_path}/shapefiles/TX_vtds/TX_vtds.shp',
-    "forsyth_nc": f'{dir_path}/shapefiles/forsyth_nc/forsyth-nc.shp',
-    'maryland': f'{dir_path}/shapefiles/maryland/MD_precincts.shp',
-    'lax': f'{dir_path}/shapefiles/lax/tl_2010_06037_bg10.shp',
-    'ccsanitation': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
-    'ccsanitation2': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
-    'new_mexico_bg': f'{dir_path}/shapefiles/new_mexico/tl_2010_35_bg10.shp',
+        "iowa_bg": f'{dir_path}/shapefiles/iowa/tl_2010_19_bg10.shp',
+
+    "kansas_bg": f'{dir_path}/shapefiles/kansas/tl_2010_20_bg10.shp',
+
+    "kentucky_bg": f'{dir_path}/shapefiles/kentucky/tl_2010_21_bg10.shp',
+
     'louisiana': f'{dir_path}/shapefiles/louisiana/LA_1519.shp',
+        "louisiana_bg": f'{dir_path}/shapefiles/louisiana/tl_2010_22_bg10.shp',
+
+    'maine': f'{dir_path}/shapefiles/maine/Maine.shp',
+        "maine_bg": f'{dir_path}/shapefiles/maine/tl_2010_23_bg10.shp',
+
+    'maryland': f'{dir_path}/shapefiles/maryland/MD_precincts.shp',
+        "maryland_bg": f'{dir_path}/shapefiles/maryland/tl_2010_24_bg10.shp',
+
+    # Massachusetts
+        'massachusetts_bg': f'{dir_path}/shapefiles/massachusetts/tl_2010_25_bg10.shp',
+        'lowell': f'{dir_path}/shapefiles/lowell/lowell-contig.shp',
+
+    "michigan": f'{dir_path}/shapefiles/michigan/MI_precincts.shp',
+        "michigan_bg": f'{dir_path}/shapefiles/michigan/tl_2010_26_bg10.shp',
+
+    "minnesota": f'{dir_path}/shapefiles/minnesota/mn_precincts12_18.shp',
+        "minnesota_bg": f'{dir_path}/shapefiles/minnesota/tl_2010_27_bg10.shp',
+
+    # Mississippi
+        "mississippi_bg": f'{dir_path}/shapefiles/mississippi/tl_2010_28_bg10.shp',
+
+    # Missouri
+        "missouri_bg": f'{dir_path}/shapefiles/missouri/tl_2010_29_bg10.shp',
+
+    # Nebraska
+        "nebraska_bg": f'{dir_path}/shapefiles/nebraska/tl_2010_31_bg10.shp',
+    # Nevada
+        "nevada_bg": f'{dir_path}/shapefiles/nevada/tl_2010_32_bg10.shp',
+
+    "newhampshire": f'{dir_path}/shapefiles/newhampshire/NH.shp',
+        "newhampshire_bg": f'{dir_path}/shapefiles/newhampshire/tl_2010_33_bg10.shp',
+
+    # New Jersey
+        "newjersey_bg": f'{dir_path}/shapefiles/newjersey/tl_2010_34_bg10.shp',
+
+    'new_mexico': f'{dir_path}/shapefiles/new_mexico/new_mexico_precincts.shp',
+        'new_mexico_bg': f'{dir_path}/shapefiles/new_mexico/tl_2010_35_bg10.shp',
+        'santafe': f'{dir_path}/shapefiles/new_mexico/santafe.shp',
+
+    # New York
+        "newyork_bg": f'{dir_path}/shapefiles/newyork/tl_2010_36_bg10.shp',
+
+    # North Carolina
+    "nc": f'{dir_path}/shapefiles/northcarolina/NC_VTD.shp',
+        "nc_bg": f'{dir_path}/shapefiles/northcarolina/tl_2010_37_bg10.shp',
+        "forsyth_nc": f'{dir_path}/shapefiles/forsyth_nc/forsyth-nc.shp',
+
+    # North Dakota
+        "northdakota_bg": f'{dir_path}/shapefiles/northdakota/tl_2010_38_bg10.shp',
+
+    "ohio": f'{dir_path}/shapefiles/ohio/OH_precincts.shp',
+        "ohio_bg": f'{dir_path}/shapefiles/ohio/tl_2010_39_bg10.shp',
+
+    "oklahoma": f'{dir_path}/shapefiles/oklahoma/OK_precincts.shp',
+        "oklahoma_bg": f'{dir_path}/shapefiles/oklahoma/tl_2010_40_bg10.shp',
+
+    "oregon": f'{dir_path}/shapefiles/oregon/OR_precincts.shp',
+        "oregon_bg": f'{dir_path}/shapefiles/oregon/tl_2010_41_bg10.shp',
+
+    "pennsylvania": f'{dir_path}/shapefiles/pennsylvania/PA.shp',
+        "pennsylvania_bg": f'{dir_path}/shapefiles/pennsylvania/tl_2010_42_bg10.shp',
+
+    "puertorico": f'{dir_path}/shapefiles/puertorico/PR.shp',
+        "puertorico_bg": f'{dir_path}/shapefiles/puertorico/tl_2010_72_bg10.shp',
+
+    "rhode_island": f'{dir_path}/shapefiles/rhodeisland/RI_precincts.shp',
+        "rhode_island_bg": f'{dir_path}/shapefiles/rhodeisland/tl_2010_44_bg10.shp',
+
+    # South Carolina
+        "southcarolina_bg": f'{dir_path}/shapefiles/southcarolina/tl_2010_45_bg10.shp',
+
+    # South Dakota
+        "southdakota_bg": f'{dir_path}/shapefiles/southdakota/tl_2010_46_bg10.shp',
+
+    # Tennessee
+        "tennessee_bg": f'{dir_path}/shapefiles/tennessee/tl_2010_47_bg10.shp',
+
+    "texas": f'{dir_path}/shapefiles/TX_vtds/TX_vtds.shp',
+        "texas_bg": f'{dir_path}/shapefiles/texas/tl_2010_48_bg10.shp',
+
+    "utah": f'{dir_path}/shapefiles/utah/UT_precincts.shp',
+        "utah_bg": f'{dir_path}/shapefiles/utah/tl_2010_49_bg10.shp',
+
+    "vermont": f'{dir_path}/shapefiles/vermont/VT_town_results.shp',
+        "vermont_bg": f'{dir_path}/shapefiles/vermont/tl_2010_50_bg10.shp',
+
+    "virginia": f'{dir_path}/shapefiles/virginia/VA_precincts.shp',
+        "virginia_bg": f'{dir_path}/shapefiles/virginia/tl_2010_51_bg10.shp',
+
+    # Washington (state)
+        "washington": f'{dir_path}/shapefiles/washington/tl_2010_53_bg10.shp',
+
+    # West Virginia
+        "westvirginia_bg": f'{dir_path}/shapefiles/westvirginia/tl_2010_54_bg10.shp',
+
+    "wisconsin": f'{dir_path}/shapefiles/wisconsin/WI_ltsb_corrected_final.shp',
+        "wisconsin2020": f'{dir_path}/shapefiles/wisconsin/WI.shp',
+        "wisconsin_bg": f'{dir_path}/shapefiles/wisconsin/tl_2010_55_bg10.shp',
+
 }
 
 def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph):
@@ -65,11 +209,14 @@ def shp_export():
     plan = request.get_json()
 
     state = plan['placeId'] # get the plan id of the Districtr plan
+    shapefile_code = state
+    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
+        shapefile_code += '_bg'
 
-    if state not in state_shapefile_paths:
+    if shapefile_code not in state_shapefile_paths:
         return 'no shapefile available'
 
-    with fiona.open(state_shapefile_paths[state], "r") as source:
+    with fiona.open(state_shapefile_paths[shapefile_code], "r") as source:
 
         # Copy the source schema and add two new properties.
         sink_schema = source.schema
@@ -135,7 +282,11 @@ def plan_pic():
 
     state = plan['placeId'] # get the plan id of the Districtr plan
 
-    if state not in state_shapefile_paths:
+    shapefile_code = state
+    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
+        shapefile_code += '_bg'
+
+    if shapefile_code not in state_shapefile_paths:
         return 'no shapefile available'
 
     # Check if we already have a dual graph of the state
@@ -185,7 +336,7 @@ def plan_pic():
     end_2 = time.time()
     print(f"Time taken to form partition from assignment: {end_2 - start_2}")
 
-    geometries = gpd.read_file(state_shapefile_paths[state])
+    geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
     parts_in_partition = gerrychain.constraints.contiguity.affected_parts(partition)
     cutoff_blank = 1
     if -1 in parts_in_partition:
@@ -241,6 +392,93 @@ def plan_pic():
 
     return str(pic_hash)
 
+@app.route('/contigv2', methods=['POST'])
+# Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
+def contiguity():
+    plan = request.get_json()
+
+    state = plan['placeId'] # get the state of the Districtr plan
+    # Check if we already have a dual graph of the state
+    dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
+    print(dual_graph_path)
+
+    if state in cached_gerrychain_graphs:
+        start = time.time()
+        print("Retrieving the state graph from memory..")
+        state_graph = cached_gerrychain_graphs[state]
+        end = time.time()
+        print(f"Time taken to retrieve the state graph from memory: {end-start}")
+    elif os.path.isfile(dual_graph_path):
+        # TODO timeit this --- how long does it take to load into memory?
+        # this takes the vast majority of the time
+        start = time.time()
+        state_graph = gerrychain.Graph.from_json(dual_graph_path)
+        print("Caching the state graph...")
+        cached_gerrychain_graphs[state] = state_graph
+        end = time.time()
+        print(f"Time taken to load into gerrychain Graph from json: {end-start}")
+    else:
+        response = flask.jsonify({'error': "Don't have dual graph for this state"})
+        return response
+        '''
+        print("No dual graph found, generating our own.")
+        try:
+            state_shapefile_path = state_shapefile_paths[state]
+            state_graph = gerrychain.Graph.from_file(state_shapefile_path)
+            state_graph.to_json(f'{dir_path}/dual_graphs/{state}_dual.json')
+            print("Dual graph generated!")
+        except GeometryError as e:
+            print(e)
+        except ValueError:
+            response = flask.jsonify({'error': "Don't have either dual graph or shapefile for this state"})
+            return response
+        '''
+
+    # OK, so now we are guaranteed to have the state graph.
+    # Form the partition with the JSON path (requires state graph)
+    # This is taken from the Districtr function from_districtr_file
+    # https://gerrychain.readthedocs.io/en/latest/_modules/gerrychain/partition/partition.html
+    id_column_key = plan["idColumn"]["key"]
+    districtr_assignment = plan["assignment"]
+
+    try:
+        node_to_id = {node: str(state_graph.nodes[node][id_column_key]) for node in state_graph}
+    except KeyError:
+        response = flask.jsonify({'error':
+            "The provided graph is missing the {} column, which is "
+            "needed to match the Districtr assignment to the nodes of the graph."
+        })
+        return response
+
+    # If everything checks out, form a Partition
+    # TODO timeit this --- how long does it take?
+    start_1 = time.time()
+    assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
+    end_1 = time.time()
+    print(f"Time taken to form assignment from dual graph: {end_1-start_1}")
+
+    # TODO timeit this --- how long does it take?
+    start_2 = time.time()
+    partition = gerrychain.Partition(state_graph, assignment, updaters={})
+    end_2 = time.time()
+    print(f"Time taken to form partition from assignment: {end_2 - start_2}")
+
+    district_connections = {}
+    for part in partition.parts:
+        if part != -1:
+            # build district subgraph
+            district_nodes = partition.parts[part]
+            #district_connections[part] = len(district_nodes)
+            district_subgraph = partition.graph.subgraph(district_nodes)
+
+            # get connected components, put it into dict
+            pieces = []
+            for piece in nx.connected_components(district_subgraph):
+                pieces.append(list(map(lambda c: state_graph.nodes[c][id_column_key], list(piece))))
+            district_connections[part] = pieces
+
+    response = flask.jsonify(district_connections)
+    return response
 
 @app.route('/', methods=['POST'])
 # Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
