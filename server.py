@@ -108,6 +108,7 @@ state_shapefile_paths = {
         "montana_bg": f'{dir_path}/shapefiles/montana/tl_2010_30_bg10.shp',
 
     # Nebraska
+    "nebraska": f'{dir_path}/shapefiles/nebraska/NE.shp',
         "nebraska_bg": f'{dir_path}/shapefiles/nebraska/tl_2010_31_bg10.shp',
     # Nevada
         "nevada_bg": f'{dir_path}/shapefiles/nevada/tl_2010_32_bg10.shp',
