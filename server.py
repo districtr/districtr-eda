@@ -17,6 +17,9 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import fiona
 
+import pickle
+from vra import district_vra_effectiveness
+
 app = Flask(__name__)
 CORS(app)
 
@@ -107,7 +110,6 @@ state_shapefile_paths = {
     # Montana
         "montana_bg": f'{dir_path}/shapefiles/montana/tl_2010_30_bg10.shp',
 
-    # Nebraska
     "nebraska": f'{dir_path}/shapefiles/nebraska/NE.shp',
         "nebraska_bg": f'{dir_path}/shapefiles/nebraska/tl_2010_31_bg10.shp',
     # Nevada
@@ -213,6 +215,29 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
     return assignment
 
 cached_gerrychain_graphs = {}
+
+state_data = {"louisiana": f'{dir_path}/vra-data/la-data.p'}
+
+# Takes a Districtr JSON and returns vra effectiveness scores for each of the districts.
+@app.route('/vra', methods=['POST'])
+def vra_effectiveness():
+    plan = request.get_json()
+    print(plan)
+    state = plan['placeId'] # get the state of the Districtr plan
+
+    if state in state_data:
+        with open(state_data[state], "rb") as fin:
+            data = pickle.load(fin)
+        if state == "louisiana":
+            data["partId"] = "Code"
+        else:
+            data["partId"] = data["geo_id"]
+        r = district_vra_effectiveness(plan["assignment"], data)
+        response = flask.jsonify(r)
+    else:
+        response = flask.jsonify({'error': "VRA effectiveness score not supported for this state"})
+
+    return response
 
 @app.route('/shp', methods=['POST'])
 def shp_export():
@@ -481,6 +506,72 @@ def contiguity():
     district_connections = {}
     for part in partition.parts:
         if part != -1:
+            # build district subgraph
+            district_nodes = partition.parts[part]
+            #district_connections[part] = len(district_nodes)
+            district_subgraph = partition.graph.subgraph(district_nodes)
+
+            # get connected components, put it into dict
+            pieces = []
+            for piece in nx.connected_components(district_subgraph):
+                pieces.append(list(map(lambda c: state_graph.nodes[c][id_column_key], list(piece))))
+            district_connections[part] = pieces
+
+    response = flask.jsonify(district_connections)
+    return response
+
+# Takes a Districtr JSON and returns islands of unassigned places
+# based on contigv2
+@app.route('/unassigned', methods=['POST'])
+def unassigned():
+    plan = request.get_json()
+
+    state = plan['placeId'] # get the state of the Districtr plan
+    # Check if we already have a dual graph of the state
+    dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
+    print(dual_graph_path)
+
+    if state in cached_gerrychain_graphs:
+        start = time.time()
+        print("Retrieving the state graph from memory..")
+        state_graph = cached_gerrychain_graphs[state]
+        end = time.time()
+        print(f"Time taken to retrieve the state graph from memory: {end-start}")
+    elif os.path.isfile(dual_graph_path):
+        # TODO timeit this --- how long does it take to load into memory?
+        # this takes the vast majority of the time
+        start = time.time()
+        state_graph = gerrychain.Graph.from_json(dual_graph_path)
+        print("Caching the state graph...")
+        cached_gerrychain_graphs[state] = state_graph
+        end = time.time()
+        print(f"Time taken to load into gerrychain Graph from json: {end-start}")
+    else:
+        response = flask.jsonify({'error': "Don't have dual graph for this state"})
+        return response
+
+    # Form the partition with the JSON path (requires state graph)
+    # This is taken from the Districtr function from_districtr_file
+    # https://gerrychain.readthedocs.io/en/latest/_modules/gerrychain/partition/partition.html
+    id_column_key = plan["idColumn"]["key"]
+    districtr_assignment = plan["assignment"]
+
+    try:
+        node_to_id = {node: str(state_graph.nodes[node][id_column_key]) for node in state_graph}
+    except KeyError:
+        response = flask.jsonify({'error':
+            "The provided graph is missing the {} column, which is "
+            "needed to match the Districtr assignment to the nodes of the graph."
+        })
+        return response
+
+    # If everything checks out, form a Partition
+    assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
+    partition = gerrychain.Partition(state_graph, assignment, updaters={})
+
+    district_connections = {}
+    for part in partition.parts:
+        if part == -1:
             # build district subgraph
             district_nodes = partition.parts[part]
             #district_connections[part] = len(district_nodes)
