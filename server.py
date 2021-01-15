@@ -16,6 +16,7 @@ import gerrychain
 import networkx as nx
 import matplotlib.pyplot as plt
 import fiona
+from fiona.crs import from_epsg
 
 import pickle
 from vra import district_vra_effectiveness
@@ -216,7 +217,8 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
 
 cached_gerrychain_graphs = {}
 
-state_data = {"louisiana": f'{dir_path}/vra-data/la-data.p'}
+state_data = {"louisiana": f'{dir_path}/vra-data/la-data.p',
+              "la_vra": f'{dir_path}/vra-data/la-data.p'}
 
 # Takes a Districtr JSON and returns vra effectiveness scores for each of the districts.
 @app.route('/vra', methods=['POST'])
@@ -377,6 +379,7 @@ def plan_pic():
     print(f"Time taken to form partition from assignment: {end_2 - start_2}")
 
     geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
+    geometries.crs = from_epsg(4326)
     parts_in_partition = gerrychain.constraints.contiguity.affected_parts(partition)
     cutoff_blank = 1
     if -1 in parts_in_partition:
