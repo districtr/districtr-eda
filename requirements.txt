@@ -2,3 +2,4 @@ flask
 flask-cors
 geopandas
 gerrychain
+descartes
