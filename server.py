@@ -4,6 +4,7 @@ import base64
 import io
 import time
 from random import randint
+from contextlib import contextmanager
 
 import flask
 from flask import Flask
@@ -17,6 +18,25 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import fiona
 from fiona.crs import from_epsg
+import pandas as pd
+
+
+import psycopg2
+conn_str = open('/home/mggg/districtr-eda/.env', 'r').read().strip()
+user = conn_str.split('user=')[1].split(' ')[0]
+passw = conn_str.split('password=')[1].split(' ')[0]
+host = conn_str.split('host=')[1].split(' ')[0]
+port = conn_str.split('port=')[1].split(' ')[0]
+
+@contextmanager
+def db():
+    con = postgreSQL_pool.getconn()
+    cur = con.cursor()
+    try:
+        yield con, cur
+    finally:
+        cur.close()
+        postgreSQL_pool.putconn(con)
 
 import pickle
 from vra import district_vra_effectiveness
@@ -71,7 +91,8 @@ state_shapefile_paths = {
 
     "illinois_bg": f'{dir_path}/shapefiles/illinois/tl_2010_17_bg10.shp',
 
-    "indiana_bg": f'{dir_path}/shapefiles/indiana/tl_2010_18_bg10.shp',
+    "indiana": f'{dir_path}/shapefiles/indiana/Indiana.shp',
+        "indiana_bg": f'{dir_path}/shapefiles/indiana/tl_2010_18_bg10.shp',
 
     "iowa": f'{dir_path}/shapefiles/IA_counties/IA_counties.shp',
         "iowa_bg": f'{dir_path}/shapefiles/iowa/tl_2010_19_bg10.shp',
@@ -82,6 +103,7 @@ state_shapefile_paths = {
 
     'louisiana': f'{dir_path}/shapefiles/louisiana/LA_1519.shp',
         "louisiana_bg": f'{dir_path}/shapefiles/louisiana/tl_2010_22_bg10.shp',
+        'batonrouge_bg': f'{dir_path}/shapefiles/louisiana/batonrouge.shp',
 
     'maine': f'{dir_path}/shapefiles/maine/Maine.shp',
         "maine_bg": f'{dir_path}/shapefiles/maine/tl_2010_23_bg10.shp',
@@ -139,6 +161,12 @@ state_shapefile_paths = {
 
     "ohio": f'{dir_path}/shapefiles/ohio/OH_precincts.shp',
         "ohio_bg": f'{dir_path}/shapefiles/ohio/tl_2010_39_bg10.shp',
+        "ohse_bg": f'{dir_path}/shapefiles/ohio/se_zone.shp',
+        "ohcentral_bg": f'{dir_path}/shapefiles/ohio/oh_centralzone.shp',
+        "ohtoledo_bg": f'{dir_path}/shapefiles/ohio/toledo_zone.shp',
+        "ohcin_bg": f'{dir_path}/shapefiles/ohio/cincinnati_zone.shp',
+        "ohcle_bg": f'{dir_path}/shapefiles/ohio/cleveland_zone.shp',
+        "ohakron_bg": f'{dir_path}/shapefiles/ohio/akron_zone.shp',
 
     "oklahoma": f'{dir_path}/shapefiles/oklahoma/OK_precincts.shp',
         "oklahoma_bg": f'{dir_path}/shapefiles/oklahoma/tl_2010_40_bg10.shp',
@@ -149,7 +177,7 @@ state_shapefile_paths = {
     "pennsylvania": f'{dir_path}/shapefiles/pennsylvania/PA.shp',
         "pennsylvania_bg": f'{dir_path}/shapefiles/pennsylvania/tl_2010_42_bg10.shp',
 
-    "puertorico": f'{dir_path}/shapefiles/puertorico/PR.shp',
+    "puertorico_prec": f'{dir_path}/shapefiles/puertorico/PR.shp',
         "puertorico_bg": f'{dir_path}/shapefiles/puertorico/tl_2010_72_bg10.shp',
 
     "rhode_island": f'{dir_path}/shapefiles/rhodeisland/RI_precincts.shp',
@@ -217,28 +245,36 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
 
 cached_gerrychain_graphs = {}
 
-state_data = {"louisiana": f'{dir_path}/vra-data/la-data.p',
-              "la_vra": f'{dir_path}/vra-data/la-data.p'}
+state_jsons = {"louisiana": f'{dir_path}/vra-data/louisiana/data.json',
+              "la_vra": f'{dir_path}/vra-data/louisiana/data.json',
+              "tx_vra": f'{dir_path}/vra-data/texas/data.json'}
 
 # Takes a Districtr JSON and returns vra effectiveness scores for each of the districts.
 @app.route('/vra', methods=['POST'])
 def vra_effectiveness():
     plan = request.get_json()
-    print(plan)
     state = plan['placeId'] # get the state of the Districtr plan
+    groups = plan["groups"]
 
-    if state in state_data:
-        with open(state_data[state], "rb") as fin:
-            data = pickle.load(fin)
+    if state in state_jsons:
+        print(state)
+        with open(state_jsons[state], "r") as fin:
+            st_data = json.load(fin)
+            data = st_data["data"]
         if state == "louisiana":
-            data["partId"] = "Code"
+                data["partId"] = "Code"
         else:
             data["partId"] = data["geo_id"]
-        r = district_vra_effectiveness(plan["assignment"], data)
-        response = flask.jsonify(r)
+        rs = {}
+        for minority in groups:
+            for k, v in st_data["csvs"].items():
+                data[k] = pd.read_csv(f'{dir_path}/' + v.format(minority))
+            r = district_vra_effectiveness(plan["assignment"], data, minority)
+            rs[minority] = r
+        response = flask.jsonify(rs)
     else:
         response = flask.jsonify({'error': "VRA effectiveness score not supported for this state"})
-
+    print("done")
     return response
 
 @app.route('/shp', methods=['POST'])
@@ -327,6 +363,8 @@ def plan_pic():
     shapefile_code = state
     if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
         shapefile_code += '_bg'
+        if state == 'indiana':
+            state = 'indiana_bg'
 
     if shapefile_code not in state_shapefile_paths:
         return 'no shapefile available'
@@ -379,7 +417,7 @@ def plan_pic():
     print(f"Time taken to form partition from assignment: {end_2 - start_2}")
 
     geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
-    geometries.crs = from_epsg(4326)
+    #geometries.crs = from_epsg(4326)
     parts_in_partition = gerrychain.constraints.contiguity.affected_parts(partition)
     cutoff_blank = 1
     if -1 in parts_in_partition:
@@ -435,6 +473,56 @@ def plan_pic():
 
     return str(pic_hash)
 
+@app.route('/findBBox', methods=['GET'])
+def bboxmark():
+    place = request.args.get('place', '')
+    clearplaces = {
+        'ohio': 'ohio',
+        'wisconsin': 'wisconsin',
+        'wisconsin2020': 'wisconsin2020',
+    }
+    clearplace = clearplaces[place]
+
+    ids = request.args.get('ids', '')
+    connection = psycopg2.connect(user=user,
+                            password=passw,
+                            host=host,
+                            port=port,
+                            database="access")
+    if(connection):
+        cursor = connection.cursor()
+        cursor.execute("select api.bbox_" + clearplace + "(%s)", (ids,))
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return flask.jsonify(result)
+    return "no connection"
+
+@app.route('/findCenter', methods=['GET'])
+def centermark():
+    place = request.args.get('place', '')
+    clearplaces = {
+        'ohio': 'ohio',
+        'wisconsin': 'wisconsin',
+        'wisconsin2020': 'wisconsin2020',
+    }
+    clearplace = clearplaces[place]
+
+    ids = request.args.get('ids', '')
+    connection = psycopg2.connect(user=user,
+                            password=passw,
+                            host=host,
+                            port=port,
+                            database="access")
+    if(connection):
+        cursor = connection.cursor()
+        cursor.execute("select api.merged_" + clearplace + "(%s)", (ids,))
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return flask.jsonify(result)
+    return "no connection"
+
 @app.route('/contigv2', methods=['POST'])
 # Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
 def contiguity():
@@ -442,6 +530,10 @@ def contiguity():
 
     state = plan['placeId'] # get the state of the Districtr plan
     # Check if we already have a dual graph of the state
+
+    if (plan['units']['id'] == 'blockgroups') and (state == 'indiana'):
+        state = 'indiana_bg'
+
     dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
     print(dual_graph_path)
 
