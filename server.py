@@ -6,6 +6,10 @@ import time
 from random import randint
 from contextlib import contextmanager
 
+## server monitoring
+import newrelic.agent
+newrelic.agent.initialize('/home/mggg/newrelic.ini')
+
 import flask
 from flask import Flask
 from flask import request
@@ -19,7 +23,6 @@ import matplotlib.pyplot as plt
 import fiona
 from fiona.crs import from_epsg
 import pandas as pd
-
 
 import psycopg2
 conn_str = open('/home/mggg/districtr-eda/.env', 'r').read().strip()
@@ -59,14 +62,23 @@ state_shapefile_paths = {
 
     "arizona": f'{dir_path}/shapefiles/arizona/az_precincts.shp',
         "arizona_bg": f'{dir_path}/shapefiles/arizona/tl_2010_04_bg10.shp',
+        "maricopa": None,
+        "nwaz": None,
+        "seaz": None,
+        "phoenix": None,
+        "yuma": None,
 
     "arkansas_bg": f'{dir_path}/shapefiles/arkansas/tl_2010_05_bg10.shp',
+        "little_rock": None,
 
     # California
     "california_bg": f'{dir_path}/shapefiles/california/tl_2010_06_bg10.shp',
         'lax_bg': f'{dir_path}/shapefiles/lax/tl_2010_06037_bg10.shp',
         'ccsanitation': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
         'ccsanitation2': f'{dir_path}/shapefiles/ccsani/CentralSan_Census_Block.shp',
+        'napa': None,
+        'napaschools': None,
+        'ontarioca': None,
 
     "colorado": f'{dir_path}/shapefiles/colorado/co_precincts.shp',
         "colorado_bg": f'{dir_path}/shapefiles/colorado/tl_2010_08_bg10.shp',
@@ -80,6 +92,8 @@ state_shapefile_paths = {
     'dc_bg': f'{dir_path}/shapefiles/wadc/tl_2010_11_bg10.shp',
 
     "florida": f'{dir_path}/shapefiles/florida/tl_2010_12_bg10.shp',
+        "miamidade": None,
+        "miamifl": None,
 
     "georgia": f'{dir_path}/shapefiles/georgia/GA_precincts16.shp',
         "georgia_bg": f'{dir_path}/shapefiles/georgia/tl_2010_13_bg10.shp',
@@ -90,8 +104,10 @@ state_shapefile_paths = {
     "idaho_bg": f'{dir_path}/shapefiles/idaho/tl_2010_16_bg10.shp',
 
     "illinois_bg": f'{dir_path}/shapefiles/illinois/tl_2010_17_bg10.shp',
+        "chicago": None,
 
     "indiana": f'{dir_path}/shapefiles/indiana/Indiana.shp',
+    "indianaprec": f'{dir_path}/shapefiles/indiana/Indiana.shp',
         "indiana_bg": f'{dir_path}/shapefiles/indiana/tl_2010_18_bg10.shp',
 
     "iowa": f'{dir_path}/shapefiles/IA_counties/IA_counties.shp',
@@ -118,11 +134,13 @@ state_shapefile_paths = {
         'ma_bg': f'{dir_path}/shapefiles/massachusetts/tl_2010_25_bg10.shp',
         'lowell': f'{dir_path}/shapefiles/lowell/lowell-contig.shp',
 
-    "michigan": f'{dir_path}/shapefiles/michigan/MI_precincts.shp',
+    "michigan": f'{dir_path}/shapefiles/michigan/MI.shp',
         "michigan_bg": f'{dir_path}/shapefiles/michigan/tl_2010_26_bg10.shp',
 
     "minnesota": f'{dir_path}/shapefiles/minnesota/mn_precincts12_18.shp',
         "minnesota_bg": f'{dir_path}/shapefiles/minnesota/tl_2010_27_bg10.shp',
+        'olmsted': None,
+        'rochestermn': None,
 
     # Mississippi
         "mississippi_bg": f'{dir_path}/shapefiles/mississippi/tl_2010_28_bg10.shp',
@@ -168,14 +186,27 @@ state_shapefile_paths = {
         "ohcle_bg": f'{dir_path}/shapefiles/ohio/cleveland_zone.shp',
         "ohakron_bg": f'{dir_path}/shapefiles/ohio/akron_zone.shp',
 
+        "akroncanton": None,
+        "cincinnati": None,
+        "clevelandeuclid": None,
+        "columbus": None,
+        "dayton": None,
+        "limaoh": None,
+        "mansfield": None,
+        "portsmouthoh": None,
+        "toledo": None,
+        "youngstown": None,
+
     "oklahoma": f'{dir_path}/shapefiles/oklahoma/OK_precincts.shp',
         "oklahoma_bg": f'{dir_path}/shapefiles/oklahoma/tl_2010_40_bg10.shp',
 
     "oregon": f'{dir_path}/shapefiles/oregon/OR_precincts.shp',
         "oregon_bg": f'{dir_path}/shapefiles/oregon/tl_2010_41_bg10.shp',
+        'portlandor': None,
 
     "pennsylvania": f'{dir_path}/shapefiles/pennsylvania/PA.shp',
         "pennsylvania_bg": f'{dir_path}/shapefiles/pennsylvania/tl_2010_42_bg10.shp',
+        'philadelphia': None,
 
     "puertorico_prec": f'{dir_path}/shapefiles/puertorico/PR.shp',
         "puertorico_bg": f'{dir_path}/shapefiles/puertorico/tl_2010_72_bg10.shp',
@@ -203,6 +234,7 @@ state_shapefile_paths = {
 
     "virginia": f'{dir_path}/shapefiles/virginia/VA_precincts.shp',
         "virginia_bg": f'{dir_path}/shapefiles/virginia/tl_2010_51_bg10.shp',
+        'vabeach': None,
 
     # Washington (state)
         "washington": f'{dir_path}/shapefiles/washington/tl_2010_53_bg10.shp',
@@ -476,12 +508,10 @@ def plan_pic():
 @app.route('/findBBox', methods=['GET'])
 def bboxmark():
     place = request.args.get('place', '')
-    clearplaces = {
-        'ohio': 'ohio',
-        'wisconsin': 'wisconsin',
-        'wisconsin2020': 'wisconsin2020',
-    }
-    clearplace = clearplaces[place]
+    if place in state_shapefile_paths or (place + "_bg") in state_shapefile_paths:
+        clearplace = place
+    else:
+        return "unrecognized shapefile / id"
 
     ids = request.args.get('ids', '')
     connection = psycopg2.connect(user=user,
@@ -501,12 +531,10 @@ def bboxmark():
 @app.route('/findCenter', methods=['GET'])
 def centermark():
     place = request.args.get('place', '')
-    clearplaces = {
-        'ohio': 'ohio',
-        'wisconsin': 'wisconsin',
-        'wisconsin2020': 'wisconsin2020',
-    }
-    clearplace = clearplaces[place]
+    if place in state_shapefile_paths or (place + "_bg") in state_shapefile_paths:
+        clearplace = place
+    else:
+        return "unrecognized shapefile / id"
 
     ids = request.args.get('ids', '')
     connection = psycopg2.connect(user=user,
