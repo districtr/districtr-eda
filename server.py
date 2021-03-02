@@ -79,6 +79,13 @@ state_shapefile_paths = {
         'napa': None,
         'napaschools': None,
         'ontarioca': None,
+        'ca_amador': None,
+        'ca_lockwood': None,
+        'ca_alturas': None,
+        'ca_CCosta': None,
+        'ca_SanBenito': None,
+        "ca_SanDiego": None,
+        "ca_sutter": None,
 
     "colorado": f'{dir_path}/shapefiles/colorado/co_precincts.shp',
         "colorado_bg": f'{dir_path}/shapefiles/colorado/tl_2010_08_bg10.shp',
@@ -94,6 +101,12 @@ state_shapefile_paths = {
     "florida": f'{dir_path}/shapefiles/florida/tl_2010_12_bg10.shp',
         "miamidade": None,
         "miamifl": None,
+        "fl_orange": None,
+        "fl_hills": None,
+        "fl_osceola": None,
+        "kissimmee": None,
+        "orlando": None,
+        "tampa": None,
 
     "georgia": f'{dir_path}/shapefiles/georgia/GA_precincts16.shp',
         "georgia_bg": f'{dir_path}/shapefiles/georgia/tl_2010_13_bg10.shp',
@@ -395,8 +408,8 @@ def plan_pic():
     shapefile_code = state
     if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
         shapefile_code += '_bg'
-        if state == 'indiana':
-            state = 'indiana_bg'
+        if state in ['indiana', 'colorado']:
+            state += '_bg'
 
     if shapefile_code not in state_shapefile_paths:
         return 'no shapefile available'
@@ -559,8 +572,8 @@ def contiguity():
     state = plan['placeId'] # get the state of the Districtr plan
     # Check if we already have a dual graph of the state
 
-    if (plan['units']['id'] == 'blockgroups') and (state == 'indiana'):
-        state = 'indiana_bg'
+    if (plan['units']['id'] == 'blockgroups') and (state in ['indiana', 'colorado']):
+        state += '_bg'
 
     dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
     print(dual_graph_path)
