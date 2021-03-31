@@ -5,10 +5,11 @@ import io
 import time
 from random import randint
 from contextlib import contextmanager
+import os
 
 ## server monitoring
-import newrelic.agent
-newrelic.agent.initialize('/home/mggg/newrelic.ini')
+#import newrelic.agent
+#newrelic.agent.initialize('/home/mggg/newrelic.ini')
 
 import flask
 from flask import Flask
@@ -79,13 +80,13 @@ state_shapefile_paths = {
         'napa': None,
         'napaschools': None,
         'ontarioca': None,
-        'ca_amador': None,
-        'ca_lockwood': None,
-        'ca_alturas': None,
-        'ca_CCosta': None,
-        'ca_SanBenito': None,
-        "ca_SanDiego": None,
-        "ca_sutter": None,
+        'ca_amador': f'{dir_path}/shapefiles/california/Amador_county.shp',
+        'ca_lockwood': f'{dir_path}/shapefiles/california/lockwood_blocks.shp',
+        'ca_alturas': f'{dir_path}/shapefiles/california/alturas_blocks.shp',
+        'ca_CCosta_bg': f'{dir_path}/shapefiles/california/ContraCosta_county.shp',
+        'ca_SanBenito': f'{dir_path}/shapefiles/california/SanBenito_county.shp',
+        "ca_SanDiego_bg": f'{dir_path}/shapefiles/california/SanDiego_county.shp',
+        "ca_sutter": f'{dir_path}/shapefiles/california/Sutter_county.shp',
 
     "colorado": f'{dir_path}/shapefiles/colorado/co_precincts.shp',
         "colorado_bg": f'{dir_path}/shapefiles/colorado/tl_2010_08_bg10.shp',
@@ -101,12 +102,12 @@ state_shapefile_paths = {
     "florida": f'{dir_path}/shapefiles/florida/tl_2010_12_bg10.shp',
         "miamidade": None,
         "miamifl": None,
-        "fl_orange": None,
-        "fl_hills": None,
-        "fl_osceola": None,
-        "kissimmee": None,
-        "orlando": None,
-        "tampa": None,
+        "fl_orange_bg": f'{dir_path}/shapefiles/florida/fl_orange.shp',
+        "fl_hills_bg": f'{dir_path}/shapefiles/florida/fl_hillsborough.shp',
+        "fl_osceola": f'{dir_path}/shapefiles/florida/osceola_blocks.shp',
+        "kissimmee": f'{dir_path}/shapefiles/florida/kissimmee_blocks.shp',
+        "orlando": f'{dir_path}/shapefiles/florida/orlando_blocks.shp',
+        "tampa": f'{dir_path}/shapefiles/florida/tampa_blocks.shp',
 
     "georgia": f'{dir_path}/shapefiles/georgia/GA_precincts16.shp',
         "georgia_bg": f'{dir_path}/shapefiles/georgia/tl_2010_13_bg10.shp',
@@ -139,6 +140,7 @@ state_shapefile_paths = {
 
     'maryland': f'{dir_path}/shapefiles/maryland/MD_precincts.shp',
         "maryland_bg": f'{dir_path}/shapefiles/maryland/tl_2010_24_bg10.shp',
+        "baltimore_bg": f'{dir_path}/shapefiles/maryland/baltimore_bgs_weighted.shp',
 
     # Massachusetts
     'ma': f'{dir_path}/shapefiles/massachusetts/TOWNSSURVEY_POLYM_GENCOAST.shp',
@@ -154,6 +156,8 @@ state_shapefile_paths = {
         "minnesota_bg": f'{dir_path}/shapefiles/minnesota/tl_2010_27_bg10.shp',
         'olmsted': None,
         'rochestermn': None,
+        'washington_mn_bg': f'{dir_path}/shapefiles/minnesota/tl_2010_27163_bg10.shp',
+        'stlouis_mn_bg': f'{dir_path}/shapefiles/minnesota/tl_2010_27137_bg10.shp',
 
     # Mississippi
         "mississippi_bg": f'{dir_path}/shapefiles/mississippi/tl_2010_28_bg10.shp',
@@ -186,6 +190,7 @@ state_shapefile_paths = {
     "nc": f'{dir_path}/shapefiles/northcarolina/NC_VTD.shp',
         "nc_bg": f'{dir_path}/shapefiles/northcarolina/tl_2010_37_bg10.shp',
         "forsyth_nc": f'{dir_path}/shapefiles/forsyth_nc/forsyth-nc.shp',
+        "buncombe": f'{dir_path}/shapefiles/northcarolina/buncombe.shp',
 
     # North Dakota
         "northdakota_bg": f'{dir_path}/shapefiles/northdakota/tl_2010_38_bg10.shp',
@@ -199,16 +204,16 @@ state_shapefile_paths = {
         "ohcle_bg": f'{dir_path}/shapefiles/ohio/cleveland_zone.shp',
         "ohakron_bg": f'{dir_path}/shapefiles/ohio/akron_zone.shp',
 
-        "akroncanton": None,
-        "cincinnati": None,
-        "clevelandeuclid": None,
-        "columbus": None,
-        "dayton": None,
-        "limaoh": None,
-        "mansfield": None,
-        "portsmouthoh": None,
-        "toledo": None,
-        "youngstown": None,
+        "akroncanton": f'{dir_path}/shapefiles/ohio/akron-canton-blocks.shp',
+        "cincinnati": f'{dir_path}/shapefiles/ohio/cincinatti-blocks.shp',
+        "clevelandeuclid": f'{dir_path}/shapefiles/ohio/cleveland-euclid-blocks.shp',
+        "columbus": f'{dir_path}/shapefiles/ohio/columbus-etc-blocks.shp',
+        "dayton": f'{dir_path}/shapefiles/ohio/dayton-blocks.shp',
+        "limaoh": f'{dir_path}/shapefiles/ohio/lima-blocks.shp',
+        "mansfield": f'{dir_path}/shapefiles/ohio/mansfield-blocks.shp',
+        "portsmouthoh": f'{dir_path}/shapefiles/ohio/portsmouth-blocks.shp',
+        "toledo": f'{dir_path}/shapefiles/ohio/toledo-blocks.shp',
+        "youngstown": f'{dir_path}/shapefiles/ohio/youngstown-blocks.shp',
 
     "oklahoma": f'{dir_path}/shapefiles/oklahoma/OK_precincts.shp',
         "oklahoma_bg": f'{dir_path}/shapefiles/oklahoma/tl_2010_40_bg10.shp',
@@ -238,6 +243,7 @@ state_shapefile_paths = {
 
     "texas": f'{dir_path}/shapefiles/TX_vtds/TX_vtds.shp',
         "texas_bg": f'{dir_path}/shapefiles/texas/tl_2010_48_bg10.shp',
+        "houston_bg": f'{dir_path}/shapefiles/texas/houston-bg.shp',
 
     "utah": f'{dir_path}/shapefiles/utah/UT_precincts.shp',
         "utah_bg": f'{dir_path}/shapefiles/utah/tl_2010_49_bg10.shp',
@@ -290,6 +296,12 @@ def form_assignment_from_state_graph(districtr_assignment, node_to_id, state_gra
 
 cached_gerrychain_graphs = {}
 
+@app.route('/debug_info_tdMnhRDXgKlukM7a', methods=['POST'])
+def debug_info():
+    proc_id = os.getpid()
+    response = flask.jsonify(proc_id)
+    return response
+
 state_jsons = {"louisiana": f'{dir_path}/vra-data/louisiana/data.json',
               "la_vra": f'{dir_path}/vra-data/louisiana/data.json',
               "tx_vra": f'{dir_path}/vra-data/texas/data.json'}
@@ -300,6 +312,7 @@ def vra_effectiveness():
     plan = request.get_json()
     state = plan['placeId'] # get the state of the Districtr plan
     groups = plan["groups"]
+    seq_id = plan["seq_id"]
 
     if state in state_jsons:
         print(state)
@@ -316,11 +329,33 @@ def vra_effectiveness():
                 data[k] = pd.read_csv(f'{dir_path}/' + v.format(minority))
             r = district_vra_effectiveness(plan["assignment"], data, minority)
             rs[minority] = r
-        response = flask.jsonify(rs)
+        response = flask.jsonify({"seq_id": seq_id, "data": rs})
     else:
         response = flask.jsonify({'error': "VRA effectiveness score not supported for this state"})
     print("done")
     return response
+
+@app.route('/demographics', methods=['POST'])
+def sideload_columns():
+    details = request.get_json()
+
+    shapefile_code = details['id']
+    if ('unitType' in details) and (details['unitType'] == 'blockgroups') and ('_bg' not in shapefile_code):
+        shapefile_code += '_bg'
+
+    keyCol = details['keyColumn']
+    units = details['units']
+
+    rows = []
+    with fiona.open(state_shapefile_paths[shapefile_code], "r") as source:
+        for f in source:
+            try:
+                if f["properties"][keyCol] in units:
+                    rows.append(f["properties"])
+            except:
+                r = 1
+
+    return flask.jsonify(rows)
 
 @app.route('/shp', methods=['POST'])
 def shp_export():
@@ -353,6 +388,8 @@ def shp_export():
             if "place" in plan and "landmarks" in plan["place"] and "data" in plan["place"]["landmarks"]:
                 with open("/tmp/export-" + randcode + ".geojson", "w") as gjo:
                     gjo.write(json.dumps(plan["place"]["landmarks"]["data"]))
+            else:
+                system("rm /tmp/export-" + randcode + ".geojson")
 
         # Create a sink for processed features with the same format and
         # coordinate reference system as the source.
@@ -393,6 +430,85 @@ def shp_export():
                 sink.write(f)
 
         system('zip ' + fname + '.zip ' + fname + '.*')
+        return send_file(
+            open(fname + '.zip', 'rb'),
+            mimetype='application/zip',
+            as_attachment=True,
+            attachment_filename='export.zip')
+
+@app.route('/geojson', methods=['POST'])
+def gj_export():
+    plan = request.get_json()
+
+    state = plan['placeId'] # get the plan id of the Districtr plan
+    shapefile_code = state
+    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
+        shapefile_code += '_bg'
+
+    if plan['units']['id'] == 'precincts_02_10':
+        shapefile_code += '_02'
+    elif plan['units']['id'] == 'precincts_12_16':
+        shapefile_code += '_12'
+
+    if shapefile_code not in state_shapefile_paths:
+        return 'no shapefile available'
+
+    with fiona.open(state_shapefile_paths[shapefile_code], "r") as source:
+
+        # Copy the source schema and add two new properties.
+        sink_schema = source.schema
+        sink_schema["properties"]["districtr"] = "int"
+
+        randcode = str(randint(1000,9999))
+
+        coi_mode = ("type" in plan["problem"]) and (plan["problem"]["type"] == "community")
+        if coi_mode:
+            sink_schema["properties"]["communityname"] = "str"
+            if "place" in plan and "landmarks" in plan["place"] and "data" in plan["place"]["landmarks"]:
+                with open("/tmp/landmarks-" + randcode + ".geojson", "w") as gjo:
+                    gjo.write(json.dumps(plan["place"]["landmarks"]["data"]))
+            else:
+                system("rm /tmp/landmarks-" + randcode + ".geojson")
+
+        # Create a sink for processed features with the same format and
+        # coordinate reference system as the source.
+        fname = "/tmp/export-" + randcode
+        with fiona.open(
+            fname + '.geojson',
+            "w",
+            crs=source.crs,
+            driver="GeoJSON",
+            schema=sink_schema,
+        ) as sink:
+            idkey = plan["idColumn"]["key"]
+
+            for f in source:
+                ukey = f["properties"][idkey]
+                try:
+                    if str(ukey) in plan["assignment"]:
+                        f["properties"].update(
+                            districtr=plan["assignment"][str(ukey)][0] + 1
+                        )
+                        if coi_mode:
+                            f["properties"].update(
+                                communityname=plan["parts"][plan["assignment"][str(ukey)][0]]["name"]
+                            )
+                    elif coi_mode:
+                        # don't include unmapped parts of state/city in COI export
+                        continue
+                    else:
+                        f["properties"].update(
+                            districtr=-1
+                        )
+                        if int(ukey) in plan["assignment"]:
+                            f["properties"].update(
+                                districtr=plan["assignment"][int(ukey)][0] + 1
+                            )
+                except:
+                    blank = 1
+                sink.write(f)
+
+        system('zip ' + fname + '.zip ' + fname + '.geojson ' + fname.replace('export', 'landmarks') + '.geojson')
         return send_file(
             open(fname + '.zip', 'rb'),
             mimetype='application/zip',
