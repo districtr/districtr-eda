@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 import fiona
 from fiona.crs import from_epsg
 import pandas as pd
+import requests
 
 import psycopg2
 conn_str = open('/home/mggg/districtr-eda/.env', 'r').read().strip()
@@ -99,7 +100,7 @@ state_shapefile_paths = {
 
     'dc_bg': f'{dir_path}/shapefiles/wadc/tl_2010_11_bg10.shp',
 
-    "florida": f'{dir_path}/shapefiles/florida/tl_2010_12_bg10.shp',
+    "florida_bg": f'{dir_path}/shapefiles/florida/tl_2010_12_bg10.shp',
         "miamidade": None,
         "miamifl": None,
         "fl_orange_bg": f'{dir_path}/shapefiles/florida/fl_orange.shp',
@@ -244,6 +245,8 @@ state_shapefile_paths = {
     "texas": f'{dir_path}/shapefiles/TX_vtds/TX_vtds.shp',
         "texas_bg": f'{dir_path}/shapefiles/texas/tl_2010_48_bg10.shp',
         "houston_bg": f'{dir_path}/shapefiles/texas/houston-bg.shp',
+        "elpasotx": f'{dir_path}/shapefiles/texas/elpasotx-prec.shp',
+        "elpasotx_b": f'{dir_path}/shapefiles/texas/tl_2010_48141_tabblock10.shp',
 
     "utah": f'{dir_path}/shapefiles/utah/UT_precincts.shp',
         "utah_bg": f'{dir_path}/shapefiles/utah/tl_2010_49_bg10.shp',
@@ -263,6 +266,7 @@ state_shapefile_paths = {
 
     "wisconsin": f'{dir_path}/shapefiles/wisconsin/WI_ltsb_corrected_final.shp',
         "wisconsin2020": f'{dir_path}/shapefiles/wisconsin/WI.shp',
+        "wisco2019acs": f'{dir_path}/shapefiles/wisconsin/WI.shp',
         "wisconsin_bg": f'{dir_path}/shapefiles/wisconsin/tl_2010_55_bg10.shp',
 
     # wyoming
@@ -365,6 +369,8 @@ def shp_export():
     shapefile_code = state
     if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
         shapefile_code += '_bg'
+    elif plan['units']['id'] == 'blocks' and state in ['elpasotx']:
+        shapefile_code += '_b'
 
     if plan['units']['id'] == 'precincts_02_10':
         shapefile_code += '_02'
@@ -515,76 +521,37 @@ def gj_export():
             as_attachment=True,
             attachment_filename='export.zip')
 
-@app.route('/picture', methods=['POST'])
-def plan_pic():
-    plan = request.get_json()
-
-    state = plan['placeId'] # get the plan id of the Districtr plan
-
-    shapefile_code = state
-    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
-        shapefile_code += '_bg'
-        if state in ['indiana', 'colorado']:
-            state += '_bg'
-
-    if shapefile_code not in state_shapefile_paths:
-        return 'no shapefile available'
-
-    # Check if we already have a dual graph of the state
-    dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
-
-    if state in cached_gerrychain_graphs:
-        start = time.time()
-        print("Retrieving the state graph from memory..")
-        state_graph = cached_gerrychain_graphs[state]
-        end = time.time()
-        print(f"Time taken to retrieve the state graph from memory: {end-start}")
-    elif os.path.isfile(dual_graph_path):
-        # TODO timeit this --- how long does it take to load into memory?
-        # this takes the vast majority of the time
-        start = time.time()
-        state_graph = gerrychain.Graph.from_json(dual_graph_path)
-        print("Caching the state graph...")
-        cached_gerrychain_graphs[state] = state_graph
-        end = time.time()
-        print(f"Time taken to load into gerrychain Graph from json: {end-start}")
+@app.route('/picture3', methods=['GET'])
+def pic_on_demand():
+    planid = request.args.get('id', '')
+    current = requests.get('https://districtr.org/.netlify/functions/planPreview?id=' + planid).json()
+    if False and ('screenshot' in current) and (len(current['screenshot']) > 20):
+        return current['screenshot']
     else:
-        response = flask.jsonify({'error': "Don't have dual graph for this state"})
-        return response
 
-    id_column_key = plan["idColumn"]["key"]
-    districtr_assignment = plan["assignment"]
+        plan = current['plan']
+        state = plan['placeId']
+        shapefile_code = plan['placeId']
+        if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
+            shapefile_code += '_bg'
+            if state in ['indiana', 'colorado', 'michigan']:
+                state += '_bg'
+        elif plan['units']['id'] == 'precincts_02_10':
+            shapefile_code += '_02'
+            state += '_02'
+        elif plan['units']['id'] == 'precincts_12_16':
+            shapefile_code += '_12'
+            state += '_12'
 
-    try:
-        node_to_id = {node: str(state_graph.nodes[node][id_column_key]) for node in state_graph}
-    except KeyError:
-        response = flask.jsonify({'error':
-            "The provided graph is missing the {} column, which is "
-            "needed to match the Districtr assignment to the nodes of the graph."
-        })
-        return response
+        if shapefile_code not in state_shapefile_paths:
+            return 'no shapefile available'
 
-    # If everything checks out, form a Partition
-    # TODO timeit this --- how long does it take?
-    start_1 = time.time()
-    assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
-    end_1 = time.time()
-    print(f"Time taken to form assignment from dual graph: {end_1-start_1}")
+        rr = gpd.read_file(state_shapefile_paths[shapefile_code])
+        assignment = plan["assignment"]
+        idkey = plan["idColumn"]["key"]
 
-    # TODO timeit this --- how long does it take?
-    start_2 = time.time()
-    partition = gerrychain.Partition(state_graph, assignment, None)
-    end_2 = time.time()
-    print(f"Time taken to form partition from assignment: {end_2 - start_2}")
-
-    geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
-    #geometries.crs = from_epsg(4326)
-    parts_in_partition = gerrychain.constraints.contiguity.affected_parts(partition)
-    cutoff_blank = 1
-    if -1 in parts_in_partition:
-        cutoff_blank = 0
-
-    cs_bright = ["#555555", "#0099cd",
+        def coloration(row):
+            cs_bright = ["#555555", "#0099cd",
     "#ffca5d",
     "#00cd99",
     "#99cd00",
@@ -622,13 +589,167 @@ def plan_pic():
     "#D81B60",
     "#26A69A",
     "#FFEA00",
-    "#6200EA"][cutoff_blank:len(parts_in_partition) + cutoff_blank]
+    "#6200EA"]
+            if row[idkey] in assignment:
+                idx = assignment[row[idkey]]
+                if isinstance(idx, list):
+                    idx = idx[0]
+                idx += 1
+                if idx > len(cs_bright):
+                    idx = idx % len(cs_bright)
+                return cs_bright[idx]
+            else:
+                return cs_bright[0]
 
-    axesplot = partition.plot(geometries, cmap=plt.cm.colors.ListedColormap(cs_bright), figsize=(1.8,1.8))
-    axesplot.axis("off")
+        rr['color'] = rr.apply(lambda row: coloration(row), axis=1)
+        plt = rr.plot(figsize=(2.8, 2.8), color=rr['color'])
+        plt.set_axis_off()
+
+        pic_IObytes = io.BytesIO()
+        plt.figure.savefig(pic_IObytes, format='png')
+        pic_IObytes.seek(0)
+        pic_hash = base64.b64encode(pic_IObytes.read())
+
+        return str(pic_hash)
+
+
+        """
+
+        # Check if we already have a dual graph of the state
+        dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
+        if os.path.isfile(dual_graph_path):
+            return requests.post('https://mggg.pythonanywhere.com/picture', json=plan).text
+        else:
+            # /picture2
+            return requests.post('https://mggg.pythonanywhere.com/picture2', json=plan).text
+        """
+
+
+@app.route('/picture2', methods=['POST'])
+def simpler_pic():
+    plan = request.get_json()
+
+    state = plan['placeId'] # get the plan id of the Districtr plan
+
+    shapefile_code = state
+    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
+        shapefile_code += '_bg'
+        if state in ['indiana', 'colorado', 'michigan']:
+            state += '_bg'
+    elif plan['units']['id'] == 'precincts_02_10':
+        shapefile_code += '_02'
+    elif plan['units']['id'] == 'precincts_12_16':
+        shapefile_code += '_12'
+
+    if shapefile_code not in state_shapefile_paths:
+        return 'no shapefile available'
+
+    #id_column_key = plan["idColumn"]["key"]
+    #districtr_assignment = plan["assignment"]
+
+    rr = gpd.read_file(state_shapefile_paths[shapefile_code])
+    plt = rr.plot(figsize=(2.8, 2.8))
+    plt.set_axis_off()
 
     pic_IObytes = io.BytesIO()
-    axesplot.figure.savefig(pic_IObytes, format='png')
+    plt.figure.savefig(pic_IObytes, format='png')
+    pic_IObytes.seek(0)
+    pic_hash = base64.b64encode(pic_IObytes.read())
+
+    return str(pic_hash)
+
+@app.route('/picture', methods=['POST'])
+def plan_pic():
+    plan = request.get_json()
+
+    state = plan['placeId'] # get the plan id of the Districtr plan
+
+    shapefile_code = state
+    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
+        shapefile_code += '_bg'
+        if state in ['indiana', 'colorado', 'michigan']:
+            state += '_bg'
+    elif plan['units']['id'] == 'precincts_02_10':
+        shapefile_code += '_02'
+        state += '_02'
+    elif plan['units']['id'] == 'precincts_12_16':
+        shapefile_code += '_12'
+        state += '_12'
+
+    if shapefile_code not in state_shapefile_paths:
+        return 'no shapefile available'
+
+    assignment = plan["assignment"]
+    id_column_key = plan["idColumn"]["key"]
+    if state == 'ma_12':
+        id_column_key = 'Name' # case-sensitive issue
+
+    geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
+    if 'pennsylvania' in state:
+        geometries = geometries.to_crs(epsg=26918)
+    elif state == 'michigan_bg':
+        geometries = geometries.to_crs(epsg=6493)
+        #geometries['GEOID10'] = geometries['GEOID10'].astype('str')
+        #geometries['GEOID10'] = geometries['GEOID10'].astype('int')
+
+
+    def coloration(row):
+        cs_bright = ["#555555", "#0099cd",
+    "#ffca5d",
+    "#00cd99",
+    "#99cd00",
+    "#cd0099",
+    "#9900cd",
+    "#8dd3c7",
+    "#bebada",
+    "#fb8072",
+    "#80b1d3",
+    "#fdb462",
+    "#b3de69",
+    "#fccde5",
+    "#bc80bd",
+    "#ccebc5",
+    "#ffed6f",
+    "#ffffb3",
+    "#a6cee3",
+    "#1f78b4",
+    "#b2df8a",
+    "#33a02c",
+    "#fb9a99",
+    "#e31a1c",
+    "#fdbf6f",
+    "#ff7f00",
+    "#cab2d6",
+    "#6a3d9a",
+    "#b15928",
+    "#64ffda",
+    "#00B8D4",
+    "#A1887F",
+    "#76FF03",
+    "#DCE775",
+    "#B388FF",
+    "#FF80AB",
+    "#D81B60",
+    "#26A69A",
+    "#FFEA00",
+    "#6200EA"]
+        if row[id_column_key] in assignment:
+            idx = assignment[row[id_column_key]]
+            if isinstance(idx, list):
+                idx = idx[0]
+            idx += 1
+            if idx > len(cs_bright):
+                idx = idx % len(cs_bright)
+            return cs_bright[idx]
+        else:
+            return cs_bright[0]
+
+    geometries['color'] = geometries.apply(lambda row: coloration(row), axis=1)
+    plt = geometries.plot(figsize=(2.8, 2.8), color=geometries['color'])
+    plt.set_axis_off()
+
+    pic_IObytes = io.BytesIO()
+    plt.figure.savefig(pic_IObytes, format='png')
     pic_IObytes.seek(0)
     pic_hash = base64.b64encode(pic_IObytes.read())
 
