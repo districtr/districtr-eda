@@ -26,6 +26,12 @@ from fiona.crs import from_epsg
 import pandas as pd
 import requests
 
+# mongodb
+from pymongo import MongoClient, ReadPreference
+client = MongoClient(open('/home/mggg/districtr-eda/.env2').read().strip(), connectTimeoutMS=30000, socketTimeoutMS=None, socketKeepAlive=True, connect=False, maxPoolsize=1)
+mdb = client.test
+
+# postgresql
 import psycopg2
 conn_str = open('/home/mggg/districtr-eda/.env', 'r').read().strip()
 user = conn_str.split('user=')[1].split(' ')[0]
@@ -64,6 +70,7 @@ state_shapefile_paths = {
 
     "arizona": f'{dir_path}/shapefiles/arizona/az_precincts.shp',
         "arizona_bg": f'{dir_path}/shapefiles/arizona/tl_2010_04_bg10.shp',
+        "mesaaz": f'{dir_path}/shapefiles/arizona/mesa2.shp',
         "maricopa": None,
         "nwaz": None,
         "seaz": None,
@@ -189,7 +196,9 @@ state_shapefile_paths = {
 
     # North Carolina
     "nc": f'{dir_path}/shapefiles/northcarolina/NC_VTD.shp',
+    "northcarolina": f'{dir_path}/shapefiles/northcarolina/NC_VTD.shp',
         "nc_bg": f'{dir_path}/shapefiles/northcarolina/tl_2010_37_bg10.shp',
+        "northcarolina_bg": f'{dir_path}/shapefiles/northcarolina/tl_2010_37_bg10.shp',
         "forsyth_nc": f'{dir_path}/shapefiles/forsyth_nc/forsyth-nc.shp',
         "buncombe": f'{dir_path}/shapefiles/northcarolina/buncombe.shp',
 
@@ -344,7 +353,7 @@ def sideload_columns():
     details = request.get_json()
 
     shapefile_code = details['id']
-    if ('unitType' in details) and (details['unitType'] == 'blockgroups') and ('_bg' not in shapefile_code):
+    if ('unitType' in details) and ('blockgroups' in details['unitType']) and ('_bg' not in shapefile_code):
         shapefile_code += '_bg'
 
     keyCol = details['keyColumn']
@@ -390,12 +399,18 @@ def shp_export():
 
         coi_mode = ("type" in plan["problem"]) and (plan["problem"]["type"] == "community")
         if coi_mode:
-            sink_schema["properties"]["communityname"] = "str"
+            sink_schema["properties"]["community"] = "str"
             if "place" in plan and "landmarks" in plan["place"] and "data" in plan["place"]["landmarks"]:
                 with open("/tmp/export-" + randcode + ".geojson", "w") as gjo:
                     gjo.write(json.dumps(plan["place"]["landmarks"]["data"]))
             else:
                 system("rm /tmp/export-" + randcode + ".geojson")
+
+        belongto = {}
+        pdex = 0
+        for part in plan["parts"]:
+            belongto[part["id"]] = pdex
+            pdex += 1
 
         # Create a sink for processed features with the same format and
         # coordinate reference system as the source.
@@ -411,28 +426,37 @@ def shp_export():
 
             for f in source:
                 ukey = f["properties"][idkey]
-                try:
-                    if str(ukey) in plan["assignment"]:
+                if str(ukey) in plan["assignment"]:
+                    f["properties"].update(
+                        districtr=plan["assignment"][str(ukey)][0] + 1
+                    )
+                    if coi_mode:
+                        kdex = plan["assignment"][str(ukey)]
+                        if isinstance(kdex, list):
+                            kdex = kdex[0]
                         f["properties"].update(
-                            districtr=plan["assignment"][str(ukey)][0] + 1
+                            community=plan["parts"][belongto[kdex]]["name"]
                         )
-                        if coi_mode:
-                            f["properties"].update(
-                                communityname=plan["parts"][plan["assignment"][str(ukey)][0]]["name"]
-                            )
-                    elif coi_mode:
-                        # don't include unmapped parts of state/city in COI export
-                        continue
+                elif coi_mode:
+                    # don't include unmapped parts of state/city in COI export
+                    continue
+                else:
+                    f["properties"].update(
+                        districtr=-1
+                    )
+                    if ukey in plan["assignment"]:
+                        f["properties"].update(
+                            districtr=plan["assignment"][ukey][0] + 1
+                        )
                     else:
-                        f["properties"].update(
-                            districtr=-1
-                        )
-                        if int(ukey) in plan["assignment"]:
-                            f["properties"].update(
-                                districtr=plan["assignment"][int(ukey)][0] + 1
-                            )
-                except:
-                    blank = 1
+                        try:
+                            if int(ukey) in plan["assignment"]:
+                                f["properties"].update(
+                                    districtr=plan["assignment"][int(ukey)][0] + 1
+                                )
+                        except:
+                            p = 1
+                #blank = 1
                 sink.write(f)
 
         system('zip ' + fname + '.zip ' + fname + '.*')
@@ -469,7 +493,7 @@ def gj_export():
 
         coi_mode = ("type" in plan["problem"]) and (plan["problem"]["type"] == "community")
         if coi_mode:
-            sink_schema["properties"]["communityname"] = "str"
+            sink_schema["properties"]["community"] = "str"
             if "place" in plan and "landmarks" in plan["place"] and "data" in plan["place"]["landmarks"]:
                 with open("/tmp/landmarks-" + randcode + ".geojson", "w") as gjo:
                     gjo.write(json.dumps(plan["place"]["landmarks"]["data"]))
@@ -497,7 +521,7 @@ def gj_export():
                         )
                         if coi_mode:
                             f["properties"].update(
-                                communityname=plan["parts"][plan["assignment"][str(ukey)][0]]["name"]
+                                community=plan["parts"][plan["assignment"][str(ukey)][0]]["name"]
                             )
                     elif coi_mode:
                         # don't include unmapped parts of state/city in COI export
@@ -521,37 +545,45 @@ def gj_export():
             as_attachment=True,
             attachment_filename='export.zip')
 
-@app.route('/picture3', methods=['GET'])
-def pic_on_demand():
-    planid = request.args.get('id', '')
-    current = requests.get('https://districtr.org/.netlify/functions/planPreview?id=' + planid).json()
-    if False and ('screenshot' in current) and (len(current['screenshot']) > 20):
-        return current['screenshot']
-    else:
+@app.route('/picture2', methods=['GET'])
+def pic_gen():
+    origin = request.args.get('id', '')
+    p = mdb.plans.find_one({ 'simple_id': int(origin) })
+    if p is None:
+        return 'none found'
 
-        plan = current['plan']
-        state = plan['placeId']
-        shapefile_code = plan['placeId']
-        if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
-            shapefile_code += '_bg'
-            if state in ['indiana', 'colorado', 'michigan']:
-                state += '_bg'
-        elif plan['units']['id'] == 'precincts_02_10':
-            shapefile_code += '_02'
-            state += '_02'
-        elif plan['units']['id'] == 'precincts_12_16':
-            shapefile_code += '_12'
-            state += '_12'
+    plan = p['plan']
+    state = plan['placeId'] # get the plan id of the Districtr plan
 
-        if shapefile_code not in state_shapefile_paths:
-            return 'no shapefile available'
+    shapefile_code = state
+    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
+        shapefile_code += '_bg'
+        if state in ['indiana', 'colorado', 'michigan']:
+            state += '_bg'
+    elif plan['units']['id'] == 'precincts_02_10':
+        shapefile_code += '_02'
+        state += '_02'
+    elif plan['units']['id'] == 'precincts_12_16':
+        shapefile_code += '_12'
+        state += '_12'
 
-        rr = gpd.read_file(state_shapefile_paths[shapefile_code])
-        assignment = plan["assignment"]
-        idkey = plan["idColumn"]["key"]
+    if shapefile_code not in state_shapefile_paths:
+        return 'no shapefile available'
 
-        def coloration(row):
-            cs_bright = ["#555555", "#0099cd",
+    assignment = plan["assignment"]
+    id_column_key = plan["idColumn"]["key"]
+
+    geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
+    if 'pennsylvania' in state:
+        geometries = geometries.to_crs(epsg=26918)
+    elif state == 'michigan_bg':
+        geometries = geometries.to_crs(epsg=6493)
+        #geometries['GEOID10'] = geometries['GEOID10'].astype('str')
+        #geometries['GEOID10'] = geometries['GEOID10'].astype('int')
+
+
+    def coloration(row):
+        cs_bright = ["#555555", "#0099cd",
     "#ffca5d",
     "#00cd99",
     "#99cd00",
@@ -590,73 +622,53 @@ def pic_on_demand():
     "#26A69A",
     "#FFEA00",
     "#6200EA"]
-            if row[idkey] in assignment:
-                idx = assignment[row[idkey]]
-                if isinstance(idx, list):
-                    idx = idx[0]
-                idx += 1
-                if idx > len(cs_bright):
-                    idx = idx % len(cs_bright)
-                return cs_bright[idx]
-            else:
-                return cs_bright[0]
-
-        rr['color'] = rr.apply(lambda row: coloration(row), axis=1)
-        plt = rr.plot(figsize=(2.8, 2.8), color=rr['color'])
-        plt.set_axis_off()
-
-        pic_IObytes = io.BytesIO()
-        plt.figure.savefig(pic_IObytes, format='png')
-        pic_IObytes.seek(0)
-        pic_hash = base64.b64encode(pic_IObytes.read())
-
-        return str(pic_hash)
-
-
-        """
-
-        # Check if we already have a dual graph of the state
-        dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
-        if os.path.isfile(dual_graph_path):
-            return requests.post('https://mggg.pythonanywhere.com/picture', json=plan).text
+        if row[id_column_key] in assignment:
+            idx = assignment[row[id_column_key]]
+            if isinstance(idx, list):
+                idx = idx[0]
+            idx += 1
+            if idx >= len(cs_bright) - 1:
+                idx = (idx % (len(cs_bright) - 1)) + 1
+            return cs_bright[idx]
         else:
-            # /picture2
-            return requests.post('https://mggg.pythonanywhere.com/picture2', json=plan).text
-        """
+            return cs_bright[0]
 
+    geometries['color'] = geometries.apply(lambda row: coloration(row), axis=1)
+    plt = geometries.plot(figsize=(2.8, 2.8), color=geometries['color'])
 
-@app.route('/picture2', methods=['POST'])
-def simpler_pic():
-    plan = request.get_json()
+    statewide = [
+        'ma',
+        'ma_02',
+        'ma_12',
+        'nc',
+        'new_mexico',
+        'new_mexico_bg',
+        'wadc',
+        'dc',
+        'indianaprec',
+        'wisco2019acs',
+        'puertorico_prec',
+    ]
 
-    state = plan['placeId'] # get the plan id of the Districtr plan
+    select = geometries[geometries['color'] != '#555555']
+    if 'state' not in plan['place']:
+        plan['place']['state'] = plan['placeId']
+    if (len(select) > 0) and ((len(select) < len(geometries) / 3) or ((plan['place']['state'].lower().replace(' ', '') not in plan['placeId']) and (plan['placeId'] not in statewide))):
+        minx, miny, maxx, maxy = select.total_bounds
+        plt.set_xlim([minx,maxx])
+        plt.set_ylim([miny,maxy])
 
-    shapefile_code = state
-    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
-        shapefile_code += '_bg'
-        if state in ['indiana', 'colorado', 'michigan']:
-            state += '_bg'
-    elif plan['units']['id'] == 'precincts_02_10':
-        shapefile_code += '_02'
-    elif plan['units']['id'] == 'precincts_12_16':
-        shapefile_code += '_12'
-
-    if shapefile_code not in state_shapefile_paths:
-        return 'no shapefile available'
-
-    #id_column_key = plan["idColumn"]["key"]
-    #districtr_assignment = plan["assignment"]
-
-    rr = gpd.read_file(state_shapefile_paths[shapefile_code])
-    plt = rr.plot(figsize=(2.8, 2.8))
     plt.set_axis_off()
 
     pic_IObytes = io.BytesIO()
     plt.figure.savefig(pic_IObytes, format='png')
     pic_IObytes.seek(0)
-    pic_hash = base64.b64encode(pic_IObytes.read())
+    pic_hash = str(base64.b64encode(pic_IObytes.read()))
+    #plt.plot.close()
 
-    return str(pic_hash)
+    mdb.plans.update_one({ 'simple_id': int(origin) }, { '$set': { 'screenshot2': 'data:image/png;base64,' + pic_hash[2:-1] } })
+
+    return "done"
 
 @app.route('/picture', methods=['POST'])
 def plan_pic():
@@ -681,8 +693,6 @@ def plan_pic():
 
     assignment = plan["assignment"]
     id_column_key = plan["idColumn"]["key"]
-    if state == 'ma_12':
-        id_column_key = 'Name' # case-sensitive issue
 
     geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
     if 'pennsylvania' in state:
@@ -746,6 +756,27 @@ def plan_pic():
 
     geometries['color'] = geometries.apply(lambda row: coloration(row), axis=1)
     plt = geometries.plot(figsize=(2.8, 2.8), color=geometries['color'])
+
+    statewide = [
+        'ma',
+        'ma_02',
+        'ma_12',
+        'nc',
+        'new_mexico',
+        'new_mexico_bg',
+        'wadc',
+        'dc',
+        'indianaprec',
+        'wisco2019acs',
+        'puertorico_prec',
+    ]
+
+    select = geometries[geometries['color'] != '#555555']
+    if (len(select) > 0) and ((len(select) < len(geometries) / 3) or ((plan['place']['state'].lower().replace(' ', '') not in plan['placeId']) and (plan['placeId'] not in statewide))):
+        minx, miny, maxx, maxy = select.total_bounds
+        plt.set_xlim([minx,maxx])
+        plt.set_ylim([miny,maxy])
+
     plt.set_axis_off()
 
     pic_IObytes = io.BytesIO()
