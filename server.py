@@ -266,6 +266,10 @@ state_shapefile_paths = {
     "virginia": f'{dir_path}/shapefiles/virginia/VA_precincts.shp',
         "virginia_bg": f'{dir_path}/shapefiles/virginia/tl_2010_51_bg10.shp',
         'vabeach': None,
+        "va_virginabeach_precincts": f'{dir_path}/shapefiles/virginiabeach/va_virginabeach_precincts.shp',
+        "va_virginabeach_blocks": f'{dir_path}/shapefiles/virginiabeach/va_virginabeach_blocks.shp',
+        "va_virginabeach_blockgroups": f'{dir_path}/shapefiles/virginiabeach/va_virginabeach_blockgroups.shp',
+
 
     # Washington (state)
         "washington": f'{dir_path}/shapefiles/washington/tl_2010_53_bg10.shp',
