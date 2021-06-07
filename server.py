@@ -95,6 +95,7 @@ state_shapefile_paths = {
         'ca_SanBenito': f'{dir_path}/shapefiles/california/SanBenito_county.shp',
         "ca_SanDiego_bg": f'{dir_path}/shapefiles/california/SanDiego_county.shp',
         "ca_sutter": f'{dir_path}/shapefiles/california/Sutter_county.shp',
+        "pasorobles": f'{dir_path}/shapefiles/california/CensusBlocks_2010_1519CVAP.shp',
 
     "colorado": f'{dir_path}/shapefiles/colorado/co_precincts.shp',
         "colorado_bg": f'{dir_path}/shapefiles/colorado/tl_2010_08_bg10.shp',
@@ -155,6 +156,7 @@ state_shapefile_paths = {
         'ma_12': f'{dir_path}/shapefiles/massachusetts/MA_precincts12_16.shp',
         'ma_02': f'{dir_path}/shapefiles/massachusetts/MA_precincts_02_10.shp',
         'ma_bg': f'{dir_path}/shapefiles/massachusetts/tl_2010_25_bg10.shp',
+        'ma_vra': f'{dir_path}/shapefiles/massachusetts/MA_VRA_Product.shp',
         'lowell': f'{dir_path}/shapefiles/lowell/lowell-contig.shp',
 
     "michigan": f'{dir_path}/shapefiles/michigan/MI.shp',
@@ -162,6 +164,7 @@ state_shapefile_paths = {
 
     "minnesota": f'{dir_path}/shapefiles/minnesota/mn_precincts12_18.shp',
         "minnesota_bg": f'{dir_path}/shapefiles/minnesota/tl_2010_27_bg10.shp',
+        "mn2020acs": f'{dir_path}/shapefiles/minnesota/mn-precincts-2020-acs-elections-adjoined.shp',
         'olmsted': None,
         'rochestermn': None,
         'washington_mn_bg': f'{dir_path}/shapefiles/minnesota/tl_2010_27163_bg10.shp',
@@ -259,6 +262,7 @@ state_shapefile_paths = {
 
     "utah": f'{dir_path}/shapefiles/utah/UT_precincts.shp',
         "utah_bg": f'{dir_path}/shapefiles/utah/tl_2010_49_bg10.shp',
+        "grand_county_2": f'{dir_path}/shapefiles/utah/grandcounty.shp',
 
     "vermont": f'{dir_path}/shapefiles/vermont/VT_town_results.shp',
         "vermont_bg": f'{dir_path}/shapefiles/vermont/tl_2010_50_bg10.shp',
@@ -266,10 +270,6 @@ state_shapefile_paths = {
     "virginia": f'{dir_path}/shapefiles/virginia/VA_precincts.shp',
         "virginia_bg": f'{dir_path}/shapefiles/virginia/tl_2010_51_bg10.shp',
         'vabeach': None,
-        "va_virginabeach_precincts": f'{dir_path}/shapefiles/virginiabeach/va_virginabeach_precincts.shp',
-        "va_virginabeach_blocks": f'{dir_path}/shapefiles/virginiabeach/va_virginabeach_blocks.shp',
-        "va_virginabeach_blockgroups": f'{dir_path}/shapefiles/virginiabeach/va_virginabeach_blockgroups.shp',
-
 
     # Washington (state)
         "washington": f'{dir_path}/shapefiles/washington/tl_2010_53_bg10.shp',
@@ -279,7 +279,7 @@ state_shapefile_paths = {
 
     "wisconsin": f'{dir_path}/shapefiles/wisconsin/WI_ltsb_corrected_final.shp',
         "wisconsin2020": f'{dir_path}/shapefiles/wisconsin/WI.shp',
-        "wisco2019acs": f'{dir_path}/shapefiles/wisconsin/WI.shp',
+        "wisco2019acs": f'{dir_path}/shapefiles/wisconsin/WI-2020.shp',
         "wisconsin_bg": f'{dir_path}/shapefiles/wisconsin/tl_2010_55_bg10.shp',
 
     # wyoming
@@ -574,7 +574,10 @@ def pic_gen():
     if shapefile_code not in state_shapefile_paths:
         return 'no shapefile available'
 
-    assignment = plan["assignment"]
+    if "assignment" in plan:
+        assignment = plan["assignment"]
+    else:
+        assignment = {}
     id_column_key = plan["idColumn"]["key"]
 
     geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
@@ -626,8 +629,16 @@ def pic_gen():
     "#26A69A",
     "#FFEA00",
     "#6200EA"]
-        if row[id_column_key] in assignment:
+        if (row[id_column_key] in assignment):
             idx = assignment[row[id_column_key]]
+            if isinstance(idx, list):
+                idx = idx[0]
+            idx += 1
+            if idx >= len(cs_bright) - 1:
+                idx = (idx % (len(cs_bright) - 1)) + 1
+            return cs_bright[idx]
+        elif (str(row[id_column_key]) in assignment):
+            idx = assignment[str(row[id_column_key])]
             if isinstance(idx, list):
                 idx = idx[0]
             idx += 1
