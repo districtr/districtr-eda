@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 import fiona
 from fiona.crs import from_epsg
 import pandas as pd
+import numpy as np
 import requests
 
 # mongodb
@@ -273,6 +274,7 @@ state_shapefile_paths = {
 
     # Washington (state)
         "washington": f'{dir_path}/shapefiles/washington/tl_2010_53_bg10.shp',
+        "washington_bg": f'{dir_path}/shapefiles/washington/tl_2010_53_bg10.shp',
 
     # West Virginia
         "westvirginia_bg": f'{dir_path}/shapefiles/westvirginia/tl_2010_54_bg10.shp',
@@ -1098,3 +1100,134 @@ def plan_metrics():
 
     response = flask.jsonify({'cut_edges': len(cut_edges), 'contiguity': contiguity, 'split': split_districts})
     return response
+
+
+@app.route('/eval_page', methods=['POST'])
+# Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
+def eval_page():
+    plan = request.get_json()
+
+    state = plan['placeId'] # get the state of the Districtr plan
+    if (plan['units']['id'] == 'blockgroups') and '_bg' not in state:
+        state += '_bg'
+
+    # Check if we already have a dual graph of the state
+    dual_graph_path = f"{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json"
+    print(dual_graph_path)
+
+    if state in cached_gerrychain_graphs:
+        start = time.time()
+        print("Retrieving the state graph from memory..")
+        state_graph = cached_gerrychain_graphs[state]
+        end = time.time()
+        print(f"Time taken to retrieve the state graph from memory: {end-start}")
+    elif os.path.isfile(dual_graph_path):
+        # TODO timeit this --- how long does it take to load into memory?
+        # this takes the vast majority of the time
+        start = time.time()
+        state_graph = gerrychain.Graph.from_json(dual_graph_path)
+        print("Caching the state graph...")
+        cached_gerrychain_graphs[state] = state_graph
+        end = time.time()
+        print(f"Time taken to load into gerrychain Graph from json: {end-start}")
+    else:
+        response = flask.jsonify({'error': "Don't have dual graph for this state"})
+        return response
+        # the below does not put all the necessary info into the dual graph...
+        '''
+        print("No dual graph found, generating our own.")
+        try:
+            state_shapefile_path = state_shapefile_paths[state]
+            state_shapefile = gpd.read_file(state_shapefile_path)
+            state_shapefile['geometry'] = state_shapefile['geometry'].buffer(0)
+            state_graph = gerrychain.Graph.from_geodataframe(state_shapefile)
+            state_graph.to_json(f'{dir_path}/dual_graphs/mggg-dual-graphs/{state}.json')
+            print("Dual graph generated!")
+        except GeometryError as e:
+            print(e)
+        except ValueError:
+            response = flask.jsonify({'error': "Don't have either dual graph or shapefile for this state"})
+            return response
+        '''
+
+    # OK, so now we are guaranteed to have the state graph.
+    # Form the partition with the JSON path (requires state graph)
+    # This is taken from the Districtr function from_districtr_file
+    # https://gerrychain.readthedocs.io/en/latest/_modules/gerrychain/partition/partition.html
+    id_column_key = plan["idColumn"]["key"]
+    districtr_assignment = plan["assignment"]
+
+
+    try:
+        node_to_id = {node: str(state_graph.nodes[node][id_column_key]) for node in state_graph}
+    except KeyError:
+        response = flask.jsonify({'error':
+            f"The provided graph is missing the {id_column_key} column, which is " +
+            "needed to match the Districtr assignment to the nodes of the graph."
+        })
+        return response
+
+    # If everything checks out, form a Partition
+    # TODO timeit this --- how long does it take?
+    start_1 = time.time()
+    assignment = form_assignment_from_state_graph(districtr_assignment, node_to_id, state_graph)
+    end_1 = time.time()
+    print(f"Time taken to form assignment from dual graph: {end_1-start_1}")
+
+    # updaters
+    # need to get County Column
+    my_updaters = {
+        "cut_edges": gerrychain.updaters.cut_edges,
+        # "county_splits": updaters.county_splits("county_splits", county_col)
+    }
+    # TODO timeit this --- how long does it take?
+    start_2 = time.time()
+    partition = gerrychain.GeographicPartition(state_graph, assignment, my_updaters)
+    end_2 = time.time()
+    print(f"Time taken to form partition from assignment: {end_2 - start_2}")
+
+    # Now that we have the partition, calculate all the different metrics
+
+    # Calculate cut edges
+    cut_edges = (partition['cut_edges'])
+
+    # Split districts
+    # TODO timeit this --- how long does it take?
+    start_3 = time.time()
+    split_districts = []
+    for part in gerrychain.constraints.contiguity.affected_parts(partition):
+        if part != -1:
+            part_contiguous = nx.is_connected(partition.subgraphs[part])
+            if not part_contiguous:
+                split_districts.append(part)
+    end_3 = time.time()
+    print(f"Time taken to get split districts: {end_3 - start_3}")
+
+    # Contiguity
+    contiguity = (len(split_districts) == 0)
+
+    # Polsby Popper
+    try:
+        polsbypopper = np.array([v for _k, v in gerrychain.metrics.polsby_popper(partition).items()])
+        polsbypopper_stats = {
+            'max': polsbypopper.max(),
+            'min': polsbypopper.min(),
+            'mean': polsbypopper.mean(),
+            'median': np.median(polsbypopper)
+        }
+        if len(polsbypopper) > 1:
+            polsbypopper_stats['variance'] = polsbypopper.var()
+    except:
+        polsbypopper_stats = "Polsby Popper unavailable for this geometry."
+
+    # county splits TODO
+
+    # Build Response dictionary
+    response = {
+        'cut_edges': len(cut_edges),
+        'contiguity': contiguity,
+        'split': split_districts,
+        'polsbypopper': polsbypopper_stats,
+        'num_units': len(state_graph.nodes)
+    }
+    return flask.jsonify(response)
