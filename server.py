@@ -651,7 +651,7 @@ def pic_gen():
             return cs_bright[0]
 
     geometries['color'] = geometries.apply(lambda row: coloration(row), axis=1)
-    plt = geometries.plot(figsize=(2.8, 2.8), color=geometries['color'])
+    geoplt = geometries.plot(figsize=(2.8, 2.8), color=geometries['color'])
 
     statewide = [
         'ma',
@@ -672,136 +672,21 @@ def pic_gen():
         plan['place']['state'] = plan['placeId']
     if (len(select) > 0) and ((len(select) < len(geometries) / 3) or ((plan['place']['state'].lower().replace(' ', '') not in plan['placeId']) and (plan['placeId'] not in statewide))):
         minx, miny, maxx, maxy = select.total_bounds
-        plt.set_xlim([minx,maxx])
-        plt.set_ylim([miny,maxy])
+        geoplt.set_xlim([minx,maxx])
+        geoplt.set_ylim([miny,maxy])
 
-    plt.set_axis_off()
+    geoplt.set_axis_off()
 
     pic_IObytes = io.BytesIO()
-    plt.figure.savefig(pic_IObytes, format='png')
+    geoplt.figure.savefig(pic_IObytes, format='png')
     pic_IObytes.seek(0)
     pic_hash = str(base64.b64encode(pic_IObytes.read()))
-    #plt.plot.close()
 
     mdb.plans.update_one({ 'simple_id': int(origin) }, { '$set': { 'screenshot2': 'data:image/png;base64,' + pic_hash[2:-1] } })
+    fig = geoplt.figure
+    plt.close(fig)
 
     return "done"
-
-@app.route('/picture', methods=['POST'])
-def plan_pic():
-    plan = request.get_json()
-
-    state = plan['placeId'] # get the plan id of the Districtr plan
-
-    shapefile_code = state
-    if plan['units']['id'] == 'blockgroups' and '_bg' not in shapefile_code:
-        shapefile_code += '_bg'
-        if state in ['indiana', 'colorado', 'michigan']:
-            state += '_bg'
-    elif plan['units']['id'] == 'precincts_02_10':
-        shapefile_code += '_02'
-        state += '_02'
-    elif plan['units']['id'] == 'precincts_12_16':
-        shapefile_code += '_12'
-        state += '_12'
-
-    if shapefile_code not in state_shapefile_paths:
-        return 'no shapefile available'
-
-    assignment = plan["assignment"]
-    id_column_key = plan["idColumn"]["key"]
-
-    geometries = gpd.read_file(state_shapefile_paths[shapefile_code])
-    if 'pennsylvania' in state:
-        geometries = geometries.to_crs(epsg=26918)
-    elif state == 'michigan_bg':
-        geometries = geometries.to_crs(epsg=6493)
-        #geometries['GEOID10'] = geometries['GEOID10'].astype('str')
-        #geometries['GEOID10'] = geometries['GEOID10'].astype('int')
-
-
-    def coloration(row):
-        cs_bright = ["#555555", "#0099cd",
-    "#ffca5d",
-    "#00cd99",
-    "#99cd00",
-    "#cd0099",
-    "#9900cd",
-    "#8dd3c7",
-    "#bebada",
-    "#fb8072",
-    "#80b1d3",
-    "#fdb462",
-    "#b3de69",
-    "#fccde5",
-    "#bc80bd",
-    "#ccebc5",
-    "#ffed6f",
-    "#ffffb3",
-    "#a6cee3",
-    "#1f78b4",
-    "#b2df8a",
-    "#33a02c",
-    "#fb9a99",
-    "#e31a1c",
-    "#fdbf6f",
-    "#ff7f00",
-    "#cab2d6",
-    "#6a3d9a",
-    "#b15928",
-    "#64ffda",
-    "#00B8D4",
-    "#A1887F",
-    "#76FF03",
-    "#DCE775",
-    "#B388FF",
-    "#FF80AB",
-    "#D81B60",
-    "#26A69A",
-    "#FFEA00",
-    "#6200EA"]
-        if row[id_column_key] in assignment:
-            idx = assignment[row[id_column_key]]
-            if isinstance(idx, list):
-                idx = idx[0]
-            idx += 1
-            if idx > len(cs_bright):
-                idx = idx % len(cs_bright)
-            return cs_bright[idx]
-        else:
-            return cs_bright[0]
-
-    geometries['color'] = geometries.apply(lambda row: coloration(row), axis=1)
-    plt = geometries.plot(figsize=(2.8, 2.8), color=geometries['color'])
-
-    statewide = [
-        'ma',
-        'ma_02',
-        'ma_12',
-        'nc',
-        'new_mexico',
-        'new_mexico_bg',
-        'wadc',
-        'dc',
-        'indianaprec',
-        'wisco2019acs',
-        'puertorico_prec',
-    ]
-
-    select = geometries[geometries['color'] != '#555555']
-    if (len(select) > 0) and ((len(select) < len(geometries) / 3) or ((plan['place']['state'].lower().replace(' ', '') not in plan['placeId']) and (plan['placeId'] not in statewide))):
-        minx, miny, maxx, maxy = select.total_bounds
-        plt.set_xlim([minx,maxx])
-        plt.set_ylim([miny,maxy])
-
-    plt.set_axis_off()
-
-    pic_IObytes = io.BytesIO()
-    plt.figure.savefig(pic_IObytes, format='png')
-    pic_IObytes.seek(0)
-    pic_hash = base64.b64encode(pic_IObytes.read())
-
-    return str(pic_hash)
 
 @app.route('/findBBox', methods=['GET'])
 def bboxmark():
@@ -1102,6 +987,45 @@ def plan_metrics():
     return response
 
 
+# helper for eval_page
+def county_col(g):
+    possible = ['Area',
+         'CNTYNAME',
+         'CNTY_NAME',
+         'COUNTY',
+         'COUNTYNAME',
+         'CTYNAME',
+         'County',
+         'Municipio',
+         'NAME10',
+         'cnty_nm',
+         'county_nam',
+         'locality']
+    cols = list(g.nodes[0].keys())
+
+    # try COUNTYFP columns
+    if "COUNTYFP10" in cols:
+        return "COUNTYFP10"
+    if "COUNTYFP" in cols:
+        return "COUNTYFP"
+
+    # try all possible columns from mggg-states
+    for p in possible:
+        if p in cols:
+            return p
+
+    # now try to break GEOIDs up if we have to
+    if "GEOID10" in cols:
+        for n in g.nodes:
+            g.nodes[n]["COUNTYFP10"] = g.nodes[n]["GEOID10"][2:5]
+        return "COUNTYFP10"
+    if "GEOID" in cols:
+        for n in g.nodes:
+            g.nodes[n]["COUNTYFP"] = g.nodes[n]["GEOID"][2:5]
+        return "COUNTYFP"
+
+    return -1
+
 @app.route('/eval_page', methods=['POST'])
 # Takes a Districtr JSON and returns whether or not it's contiguous and number of cut edges.
 def eval_page():
@@ -1176,10 +1100,16 @@ def eval_page():
 
     # updaters
     # need to get County Column
+    if state in ['ma']:
+        county_column = "TOWN"
+    else:
+        county_column = county_col(state_graph)
     my_updaters = {
         "cut_edges": gerrychain.updaters.cut_edges,
-        # "county_splits": updaters.county_splits("county_splits", county_col)
     }
+    if county_column != -1:
+        my_updaters["county_splits"] = gerrychain.updaters.county_splits("county_splits", county_column)
+
     # TODO timeit this --- how long does it take?
     start_2 = time.time()
     partition = gerrychain.GeographicPartition(state_graph, assignment, my_updaters)
@@ -1220,7 +1150,35 @@ def eval_page():
     except:
         polsbypopper_stats = "Polsby Popper unavailable for this geometry."
 
-    # county splits TODO
+    # county splits
+    county_response = {}
+    if county_column == -1:
+        county_response = -1
+    else:
+        counties = set([state_graph.nodes[n][county_column] for n in state_graph.nodes])
+        county_response['num_counties'] = len(counties)
+        try:
+            county_partition = gerrychain.GeographicPartition(state_graph, county_column ,
+                        {"population": gerrychain.updaters.Tally('TOTPOP', alias="population")})
+            county_pop_dict = {c: county_partition.population[c] for c in counties}
+            county_response['population'] = county_pop_dict
+            county_response['num_counties'] = len(counties)
+        except KeyError:
+            county_response['population'] = -1
+        split_list = {}
+        splits = 0
+        num_split = 0
+        for c in counties:
+            s = partition.county_splits[c].contains
+            # this is caused by a bug in some states in gerrychain I think
+            if -1 in s:
+                s.remove(-1)
+            if len(s) > 1:
+                num_split += 1
+                split_list[c] = list(s)
+                splits += len(s) - 1
+        county_response['splits'] = splits
+        county_response['split_list'] = split_list
 
     # Build Response dictionary
     response = {
@@ -1228,6 +1186,7 @@ def eval_page():
         'contiguity': contiguity,
         'split': split_districts,
         'polsbypopper': polsbypopper_stats,
-        'num_units': len(state_graph.nodes)
+        'num_units': len(state_graph.nodes),
+        'counties': county_response
     }
     return flask.jsonify(response)
