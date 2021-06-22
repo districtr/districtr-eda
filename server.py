@@ -97,6 +97,15 @@ state_shapefile_paths = {
         "ca_SanDiego_bg": f'{dir_path}/shapefiles/california/SanDiego_county.shp',
         "ca_sutter": f'{dir_path}/shapefiles/california/Sutter_county.shp',
         "pasorobles": f'{dir_path}/shapefiles/california/CensusBlocks_2010_1519CVAP.shp',
+        'sacramento': f'{dir_path}/shapefiles/california/Sacramento_county.shp',
+        'ca_sonoma': f'{dir_path}/shapefiles/california/sonoma.shp',
+        'sanluiso': f'{dir_path}/shapefiles/california/sanluiso.shp',
+        'napa2021': f'{dir_path}/shapefiles/california/napa2021.shp',
+        'napacounty2021': f'{dir_path}/shapefiles/california/napacounty2021.shp',
+        'sanjoseca': f'{dir_path}/shapefiles/california/sanjose.shp',
+        'redwood': f'{dir_path}/shapefiles/california/redwood.shp',
+        'ca_ventura': f'{dir_path}/shapefiles/california/ventura.shp',
+        'ca_yolo': f'{dir_path}/shapefiles/california/yolo.shp',
 
     "colorado": f'{dir_path}/shapefiles/colorado/co_precincts.shp',
         "colorado_bg": f'{dir_path}/shapefiles/colorado/tl_2010_08_bg10.shp',
@@ -144,6 +153,8 @@ state_shapefile_paths = {
     'louisiana': f'{dir_path}/shapefiles/louisiana/LA_1519.shp',
         "louisiana_bg": f'{dir_path}/shapefiles/louisiana/tl_2010_22_bg10.shp',
         'batonrouge_bg': f'{dir_path}/shapefiles/louisiana/batonrouge.shp',
+        'la_vra': True,
+
 
     'maine': f'{dir_path}/shapefiles/maine/Maine.shp',
         "maine_bg": f'{dir_path}/shapefiles/maine/tl_2010_23_bg10.shp',
@@ -159,6 +170,7 @@ state_shapefile_paths = {
         'ma_bg': f'{dir_path}/shapefiles/massachusetts/tl_2010_25_bg10.shp',
         'ma_vra': f'{dir_path}/shapefiles/massachusetts/MA_VRA_Product.shp',
         'lowell': f'{dir_path}/shapefiles/lowell/lowell-contig.shp',
+        'ma_vra': True,
 
     "michigan": f'{dir_path}/shapefiles/michigan/MI.shp',
         "michigan_bg": f'{dir_path}/shapefiles/michigan/tl_2010_26_bg10.shp',
@@ -207,7 +219,9 @@ state_shapefile_paths = {
         "buncombe": f'{dir_path}/shapefiles/northcarolina/buncombe.shp',
 
     # North Dakota
+    "northdakota": f'{dir_path}/shapefiles/northdakota/ND_pop.shp',
         "northdakota_bg": f'{dir_path}/shapefiles/northdakota/tl_2010_38_bg10.shp',
+        "nd_benson": f'{dir_path}/shapefiles/northdakota/benson-county-2019.shp',
 
     "ohio": f'{dir_path}/shapefiles/ohio/OH_precincts.shp',
         "ohio_bg": f'{dir_path}/shapefiles/ohio/tl_2010_39_bg10.shp',
@@ -705,6 +719,29 @@ def bboxmark():
     if(connection):
         cursor = connection.cursor()
         cursor.execute("select api.bbox_" + clearplace + "(%s)", (ids,))
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return flask.jsonify(result)
+    return "no connection"
+
+@app.route('/findLimits', methods=['GET'])
+def limitmark():
+    place = request.args.get('place', '')
+    if place in state_shapefile_paths or (place + "_bg") in state_shapefile_paths:
+        clearplace = place
+    else:
+        return "unrecognized shapefile / id"
+
+    ids = request.args.get('ids', '')
+    connection = psycopg2.connect(user=user,
+                            password=passw,
+                            host=host,
+                            port=port,
+                            database="access")
+    if(connection):
+        cursor = connection.cursor()
+        cursor.execute("select api.limit_" + clearplace + "(%s)", (ids,))
         result = cursor.fetchone()
         cursor.close()
         connection.close()
